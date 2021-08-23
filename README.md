@@ -1,1 +1,1 @@
-# SimpleEpoll
+# Simple Epoll Library
