@@ -1,0 +1,1 @@
+ADD_LIBRARY(libsepoll STATIC AcceptSEpoll.cpp ConnectSEpoll.cpp)
