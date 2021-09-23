@@ -1,4 +1,4 @@
-SET(LIBSOURCE AcceptSEpoll.cpp ConnectSEpoll.cpp)
+set(LIBSOURCE SEpoll.cpp)
 
-# ADD_LIBRARY(libsepoll STATIC ${LIBSOURCE})
-ADD_LIBRARY(libsepoll SHARED ${LIBSOURCE})
+add_library(libsepoll STATIC ${LIBSOURCE})
+# add_library(libsepoll SHARED ${LIBSOURCE})
