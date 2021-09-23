@@ -1,18 +1,92 @@
 #include "def_hdr.hpp"
 #include <arpa/inet.h>
+#include <functional>
 #include <memory>
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <unordered_map>
+#include <vector>
 
-template <typename T1, typename T2, class T3, class T4> //
+class SEpollFDFunc {
+public:
+  SEpollFDFunc();
+  ~SEpollFDFunc();
+
+  void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg) {
+    m_read_func = read_func;
+    m_read_arg = arg;
+  };
+  void unsetReadFunc() { m_read_func = NULL; };
+  void executeReadFunc(int fd, short what) {
+    if (m_read_func) {
+      m_read_func(fd, what, m_read_arg);
+    }
+  };
+
+  void setWriteFunc(std::function<void(int fd, short what, void *arg)> write_func, void *arg) {
+    m_write_func = write_func;
+    m_write_arg = arg;
+  };
+  void unsetWriteFunc() { m_write_func = NULL; };
+  void executeWriteFunc(int fd, short what) {
+    if (m_write_func) {
+      m_write_func(fd, what, m_write_arg);
+    }
+  };
+
+private:
+  std::function<void(int fd, short what, void *arg)> m_read_func = NULL;
+  void *m_read_arg = NULL;
+  std::function<void(int fd, short what, void *arg)> m_write_func = NULL;
+  void *m_write_arg = NULL;
+};
+
+template <typename FDType, typename FDSetFunc, typename FSGetFunc> //
 class SEpoll {
 public:
-  SEpoll(SEPOLL_TYPE type, uint32_t epoll_size, uint32_t buff_size, uint16_t port) {
+private:
+  // std::mutext m_fds_mutex;
+
+  std::shared_ptr<std::vector<FDType>> m_fds = std::make_shared<std::vector<FDType>>();
+  std::unordered_map<int, SEpollFDFunc> m_fds_funcs;
+
+  SEPOLL_TYPE m_type = SEPOLL_TYPE::ACCEPT;
+
+  uint32_t m_epoll_size = 1024;
+  uint32_t m_buff_size = 2048;
+  uint16_t m_port = 4000;
+  std::string m_ip = "";
+
+  std::function<void(int, short, void *arg)> m_init_read_func = NULL;
+  void *m_init_read_arg = NULL;
+  std::function<void(int, short, void *arg)> m_init_write_func = NULL;
+  void *m_init_write_arg = NULL;
+
+  // socket variables
+  int server_socket = -1;
+  struct sockaddr_in server_addr;
+
+  char *buff_rcv;
+  char *buff_snd;
+  // ~socket variables
+
+  // epoll variables
+  int epoll_fd = -1;
+  struct epoll_event server_event;
+  struct epoll_event *events;
+  // ~epoll variables
+
+protected:
+public:
+  SEpoll(SEPOLL_TYPE type, uint32_t epoll_size, uint32_t buff_size, uint16_t port, std::string ip) {
+    m_type = type;
+
     m_epoll_size = epoll_size;
     m_buff_size = buff_size;
     m_port = port;
+    m_ip = ip;
 
     buff_rcv = (char *)malloc(sizeof(char) * m_buff_size);
     buff_snd = (char *)malloc(sizeof(char) * m_buff_size);
@@ -20,6 +94,47 @@ public:
   ~SEpoll() {}
 
   SEPOLL_RESULT init() {
+    if (m_type == SEPOLL_TYPE::ACCEPT) {
+      return initAccept();
+    } else { // SEPOLL_TYPE::CONNECT
+      return initConnect();
+    }
+  }
+
+  std::shared_ptr<std::vector<FDType>> getObjVectorPtr() { return m_fds; }
+
+  void setInitReadFunc(std::function<void(int, short, void *)> func, void *arg) {
+    m_init_read_func = func;
+    m_init_read_arg = arg;
+  }
+
+  void setInitWriteFunc(std::function<void(int, short, void *)> func, void *arg) {
+    m_init_write_func = func;
+    m_init_write_arg = arg;
+  }
+
+  void run() {
+    while (1) {
+      int event_count = epoll_wait(epoll_fd, events, m_epoll_size, -1);
+
+      if (event_count == -1) {
+        printf("실패\n");
+        continue;
+      }
+
+      for (int i = 0; i < event_count; i++) {
+        int who = events[i].data.fd;
+        uint32_t what = events[i].events;
+        if (m_type == SEPOLL_TYPE::ACCEPT) { // SEPOLL_TYPE::ACCEPT
+          runAccept(who, what);
+        } else { // SEPOLL_TYPE::CONNECT
+        }
+      } // ~for (int i = 0; i < event_count; i++)
+    }   // ~while (1)
+  }
+
+private:
+  SEPOLL_RESULT initAccept() {
     server_socket = socket(PF_INET, SOCK_STREAM, 0);
     if (server_socket == -1) {
       printf("socket 생성 실패\n");
@@ -60,116 +175,51 @@ public:
     events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * m_epoll_size);
   }
 
-  void run() {}
+  SEPOLL_RESULT initConnect() { return SEPOLL_RESULT::SUCCESS; }
 
-private:
-  T1 recv_obj;
-  T2 send_obj;
-  T3 recv_func;
-  T4 send_func;
+  void runAccept(int who, uint32_t what) {
+    if (who == server_socket) { // Server Socket Event
+      if (what & EPOLLIN) {
+        int client_socket;
+        struct sockaddr_in client_addr;
+        socklen_t client_addr_size;
 
-  SEPOLL_TYPE m_type = SEPOLL_TYPE::ACCEPT;
-  uint32_t m_epoll_size = 1024;
-  uint32_t m_buff_size = 2048;
-  uint16_t m_port = 4000;
+        client_addr_size = sizeof(client_addr);
+        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
 
-  // socket variables
-  int server_socket;
-  struct sockaddr_in server_addr;
+        /* set fds */
+        m_fds->push_back(FDSetFunc(client_socket));
 
-  char *buff_rcv;
-  char *buff_snd;
-  // ~socket variables
-
-  // epoll variables
-  int epoll_fd = -1;
-  struct epoll_event server_event;
-  struct epoll_event *events;
-  // ~epoll variables
-
-protected:
-};
-
-#if 0
-template <typename T1, typename T2, class T3, class T4> //
-class SEpoll {
-public:
-  SEpoll(uint32_t epoll_size, uint32_t buff_size, uint16_t port) {
-    m_epoll_size = epoll_size;
-    m_buff_size = buff_size;
-    m_port = port;
-
-    buff_rcv = (char *)malloc(sizeof(char) * m_buff_size);
-    buff_snd = (char *)malloc(sizeof(char) * m_buff_size);
-  }
-  ~SEpoll() {}
-
-  SEPOLL_RESULT init() {
-    server_socket = socket(PF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1) {
-      printf("socket 생성 실패\n");
-      return SEPOLL_RESULT::FAIL;
+        struct epoll_event client_event;
+        client_event.events = 0;
+        if (m_init_read_func) {
+          client_event.events |= EPOLLIN | EPOLLRDHUP | EPOLLERR;
+          m_fds_funcs[client_socket].setReadFunc(m_init_read_func, m_init_read_arg);
+        }
+        if (m_init_write_func) {
+          client_event.events |= EPOLLOUT;
+          m_fds_funcs[client_socket].setWriteFunc(m_init_write_func, m_init_write_arg);
+        }
+        client_event.data.fd = client_socket;
+        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
+      }
+    } else { // Client Socket Event
+      if (what & EPOLLIN) {
+        m_fds_funcs[who].executeReadFunc(who, what);
+      } else if (what & EPOLLOUT) {
+        m_fds_funcs[who].executeWriteFunc(who, what);
+      }
     }
-
-    int optval = 1;
-    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(m_port);
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
-
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
-      printf("bind 실패\n");
-      return SEPOLL_RESULT::FAIL;
-    }
-
-    if (listen(server_socket, 5) == -1) {
-      printf("listen 모드 설정 실패\n");
-      return SEPOLL_RESULT::FAIL;
-    }
-
-    /* epoll create */
-    if ((epoll_fd = epoll_create1(0)) == -1) {
-      printf("server epoll 생성 실패\n");
-      return SEPOLL_RESULT::FAIL;
-    }
-
-    /* epoll ctl add server socket */
-    server_event.events = EPOLLIN | EPOLLRDHUP;
-    server_event.data.fd = server_socket;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &server_event);
-
-    /* alloc events */
-    events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * m_epoll_size);
   }
 
-  void run() {}
+  void runConnect(int who, uint32_t what) {}
 
-private:
-  T1 recv_obj;
-  T2 send_obj;
-  T3 recv_func;
-  T4 send_func;
-
-  uint32_t m_epoll_size = 1024;
-  uint32_t m_buff_size = 2048;
-  uint16_t m_port = 4000;
-
-  // socket variables
-  int server_socket;
-  struct sockaddr_in server_addr;
-
-  char *buff_rcv;
-  char *buff_snd;
-  // ~socket variables
-
-  // epoll variables
-  int epoll_fd = -1;
-  struct epoll_event server_event;
-  struct epoll_event *events;
-  // ~epoll variables
-
-protected:
+  FDType getFDTypeByFD(int fd) {
+    for (auto a : m_fds) {
+      if (FDGetFunc(a) == fd) {
+        return a;
+      }
+    }
+    return NULL;
+  };
 };
-#endif
