@@ -12,20 +12,19 @@ private:
   int m_fd = 0;
 };
 
-auto __FDSetFunc = [](int fd) -> MyFDClass {
+typedef std::function<MyFDClass(int)> FDSetFunc;
+auto lamFDSetFunc = [](int fd) -> MyFDClass {
   MyFDClass mfc(fd);
   return mfc;
 };
-auto __FDGetFunc = [](MyFDClass mfc) -> int { return mfc.getFD(); };
-
-typedef std::function<MyFDClass(int)> FDSetFunc;
 typedef std::function<int(MyFDClass)> FDGetFunc;
+auto lamFDGetFunc = [](MyFDClass mfc) -> int { return mfc.getFD(); };
 
 int main(int argc, char **argv) {
   printf("Start Server\n");
 
-  SEpoll<MyFDClass, FDSetFunc, FDGetFunc> mysepoll(SEPOLL_TYPE::ACCEPT, 1024, 4096, 4000, "127.0.0.1");
-  // SEpoll<MyFDClass, int, char> mysepoll(SEPOLL_TYPE::ACCEPT, 1024, 4096, 4000, "127.0.0.1");
+  SEpoll<MyFDClass, FDSetFunc, FDGetFunc> mysepoll(lamFDSetFunc, lamFDGetFunc);
+  mysepoll.init(SEPOLL_TYPE::ACCEPT, 1024, 4096, 4000, "127.0.0.1");
 
   printf("End Server\n");
 

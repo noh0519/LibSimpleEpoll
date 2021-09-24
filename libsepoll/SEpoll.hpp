@@ -66,8 +66,8 @@ public:
 private:
   // std::mutext m_fds_mutex;
 
-  const FDSetFunc m_fd_set_func;
-  const FDGetFunc m_fd_get_func;
+  FDSetFunc m_fd_set_func;
+  FDGetFunc m_fd_get_func;
 
   std::shared_ptr<std::vector<FDType>> m_fds = std::make_shared<std::vector<FDType>>();
   std::unordered_map<int, SEpollFDFunc> m_fds_funcs;
@@ -225,6 +225,8 @@ private:
 
     /* alloc events */
     events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * m_epoll_size);
+
+    return SEPOLL_RESULT::SUCCESS;
   }
 
   SEPOLL_RESULT initConnect() { return SEPOLL_RESULT::SUCCESS; }
