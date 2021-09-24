@@ -14,11 +14,11 @@ public:
   SEpollFDFunc() {}
   ~SEpollFDFunc() {}
 
-  void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg = NULL,
-                   uint32_t what = EPOLLIN | EPOLLRDHUP | EPOLLERR) {
+  void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg = NULL, uint32_t what = EPOLLIN) {
     m_read_func = read_func;
     m_read_arg = arg;
     m_read_what = what;
+    m_read_what |= EPOLLRDHUP | EPOLLHUP | EPOLLERR; // necessary event
   }
   void unsetReadFunc() {
     m_read_func = NULL;
@@ -128,12 +128,11 @@ public:
 
   void getObjVectorPtr(std::shared_ptr<std::vector<ShrFDType>> &fds) { fds = m_fds; }
 
-  void setInitReadFunc(std::function<void(int, short, void *)> func, uint32_t what = EPOLLIN | EPOLLRDHUP | EPOLLERR) {
+  void setInitReadFunc(std::function<void(int, short, void *)> func, uint32_t what = EPOLLIN) {
     m_init_read_func = func;
     m_init_read_what = what;
   }
-  void setReadFunc(int fd, std::function<void(int, short, void *)> func, void *arg = NULL,
-                   uint32_t what = EPOLLIN | EPOLLRDHUP | EPOLLERR) {
+  void setReadFunc(int fd, std::function<void(int, short, void *)> func, void *arg = NULL, uint32_t what = EPOLLIN) {
     m_fds_funcs[fd].setReadFunc(func, arg, what);
     refreshEvent(fd);
   }
@@ -256,7 +255,16 @@ private:
         client_event.data.fd = client_socket;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
       }
-    } else { // Client Socket Event
+    } else {                   // Client Socket Event
+      if (what & EPOLLRDHUP) { // necessary event : disconnection
+        // printf("!!!EPOLLRDHUP!!!\n");
+      }
+      if (what & EPOLLHUP) { // necessary event :
+        // printf("!!!EPOLLHUP!!!\n");
+      }
+      if (what & EPOLLERR) { // necessary event :
+        // printf("!!!EPOLLERR!!!\n");
+      }
       if (m_fds_funcs[who].isReadWhat(what)) {
         m_fds_funcs[who].executeReadFunc(who, what);
       }
@@ -267,6 +275,8 @@ private:
   }
 
   void runConnect(int who, uint32_t what) {}
+
+  void removeFD(int fd) { epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL); }
 
   FDType getFDTypeByFD(int fd) {
     for (auto a : m_fds) {

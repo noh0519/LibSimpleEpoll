@@ -32,6 +32,7 @@ public:
   }
 
   void loginWriteFunc(int fd, short what) {
+    printf("!!!NBH!!!\n");
     if (what & EPOLLOUT) {
       memset(buff_send, 0x00, 4096);
       if (m_step == 1) {
@@ -55,7 +56,7 @@ public:
     if (what & EPOLLIN) {
       memset(buff_recv, 0x00, 4096);
       recv(fd, buff_recv, 4096, 0);
-      printf("get data(%d) : %s\n", fd, buff_recv);
+      // printf("get data(%d) : %s\n", fd, buff_recv);
     }
   }
 
@@ -93,10 +94,11 @@ int main(int argc, char **argv) {
   tsepoll.detach();
 
   int loop_cnt = 0;
+
   while (1) {
     for (auto a : *mfcs) {
-      if (a->getStep() == 3) {
-        printf("find step 3 (%d)\n", a->getFD());
+      if (a->getStep() == 6) {
+        printf("find step 6 (%d)\n", a->getFD());
         a->setStep(4);
         mysepoll.setReadFunc(
             a->getFD(), [](int fd, short what, void *arg) -> void { static_cast<MyFDClass *>(arg)->runReadFunc(fd, what); }, a.get(),
@@ -104,6 +106,8 @@ int main(int argc, char **argv) {
         mysepoll.unsetWriteFunc(a->getFD());
       }
     }
+
+    loop_cnt++;
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
 
