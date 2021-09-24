@@ -66,10 +66,11 @@ public:
 private:
   // std::mutext m_fds_mutex;
 
+  typedef std::shared_ptr<FDType> ShrFDType;
   FDSetFunc m_fd_set_func;
   FDGetFunc m_fd_get_func;
 
-  std::shared_ptr<std::vector<FDType>> m_fds = std::make_shared<std::vector<FDType>>();
+  std::shared_ptr<std::vector<ShrFDType>> m_fds = std::make_shared<std::vector<ShrFDType>>();
   std::unordered_map<int, SEpollFDFunc> m_fds_funcs;
 
   SEPOLL_TYPE m_type = SEPOLL_TYPE::ACCEPT;
@@ -81,11 +82,9 @@ private:
 
   uint32_t m_init_read_what = 0;
   std::function<void(int, short, void *arg)> m_init_read_func = NULL;
-  void *m_init_read_arg = NULL;
 
   uint32_t m_init_write_what = 0;
   std::function<void(int, short, void *arg)> m_init_write_func = NULL;
-  void *m_init_write_arg = NULL;
 
   // socket variables
   int server_socket = -1;
@@ -127,11 +126,10 @@ public:
     }
   }
 
-  std::shared_ptr<std::vector<FDType>> getObjVectorPtr() { return m_fds; }
+  void getObjVectorPtr(std::shared_ptr<std::vector<ShrFDType>> &fds) { fds = m_fds; }
 
-  void setInitReadFunc(std::function<void(int, short, void *)> func, void *arg = NULL, uint32_t what = EPOLLIN | EPOLLRDHUP | EPOLLERR) {
+  void setInitReadFunc(std::function<void(int, short, void *)> func, uint32_t what = EPOLLIN | EPOLLRDHUP | EPOLLERR) {
     m_init_read_func = func;
-    m_init_read_arg = arg;
     m_init_read_what = what;
   }
   void setReadFunc(int fd, std::function<void(int, short, void *)> func, void *arg = NULL,
@@ -144,9 +142,8 @@ public:
     refreshEvent(fd);
   }
 
-  void setInitWriteFunc(std::function<void(int, short, void *)> func, void *arg = NULL, uint32_t what = EPOLLOUT) {
+  void setInitWriteFunc(std::function<void(int, short, void *)> func, uint32_t what = EPOLLOUT) {
     m_init_write_func = func;
-    m_init_write_arg = arg;
     m_init_write_what = what;
   }
   void setWriteFunc(int fd, std::function<void(int, short, void *)> func, void *arg = NULL, uint32_t what = EPOLLOUT) {
@@ -242,17 +239,19 @@ private:
         client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
 
         /* set fds */
-        m_fds->push_back(m_fd_set_func(client_socket));
+        // FDType set_fdt = m_fd_set_func(client_socket);
+        ShrFDType set_shrfdt = std::make_shared<FDType>(m_fd_set_func(client_socket));
+        m_fds->push_back(set_shrfdt);
 
         struct epoll_event client_event;
         client_event.events = 0;
         if (m_init_read_func) {
           client_event.events |= m_init_read_what;
-          m_fds_funcs[client_socket].setReadFunc(m_init_read_func, m_init_read_arg, m_init_read_what);
+          m_fds_funcs[client_socket].setReadFunc(m_init_read_func, static_cast<void *>(set_shrfdt.get()), m_init_read_what);
         }
         if (m_init_write_func) {
           client_event.events |= m_init_write_what;
-          m_fds_funcs[client_socket].setWriteFunc(m_init_write_func, m_init_write_arg, m_init_write_what);
+          m_fds_funcs[client_socket].setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
         }
         client_event.data.fd = client_socket;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
@@ -260,7 +259,8 @@ private:
     } else { // Client Socket Event
       if (m_fds_funcs[who].isReadWhat(what)) {
         m_fds_funcs[who].executeReadFunc(who, what);
-      } else if (m_fds_funcs[who].isWriteWhat(what)) {
+      }
+      if (m_fds_funcs[who].isWriteWhat(what)) {
         m_fds_funcs[who].executeWriteFunc(who, what);
       }
     }
@@ -270,8 +270,8 @@ private:
 
   FDType getFDTypeByFD(int fd) {
     for (auto a : m_fds) {
-      if (m_fd_get_func(a) == fd) {
-        return a;
+      if (m_fd_get_func(*a) == fd) {
+        return *a;
       }
     }
     return NULL;

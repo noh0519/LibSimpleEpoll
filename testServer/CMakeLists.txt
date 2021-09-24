@@ -15,5 +15,6 @@ target_link_directories(server
 )
 
 target_link_libraries(server
+    pthread
     sepoll
 )
