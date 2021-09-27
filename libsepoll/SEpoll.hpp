@@ -1,4 +1,5 @@
 #include "def_hdr.hpp"
+#include <algorithm>
 #include <arpa/inet.h>
 #include <functional>
 #include <memory>
@@ -6,6 +7,7 @@
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <unordered_map>
 #include <vector>
 
@@ -258,6 +260,7 @@ private:
     } else {                   // Client Socket Event
       if (what & EPOLLRDHUP) { // necessary event : disconnection
         // printf("!!!EPOLLRDHUP!!!\n");
+        removeFD(who);
       }
       if (what & EPOLLHUP) { // necessary event :
         // printf("!!!EPOLLHUP!!!\n");
@@ -276,7 +279,19 @@ private:
 
   void runConnect(int who, uint32_t what) {}
 
-  void removeFD(int fd) { epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL); }
+  void removeFD(int fd) {
+    close(fd);
+    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+    auto remove_if_func = [fgf = m_fd_get_func, fd](std::shared_ptr<FDType> fdt) -> bool {
+      if (fgf(*fdt) == fd) {
+        return true;
+      } else {
+        return false;
+      }
+    };
+    m_fds->erase(remove_if(m_fds->begin(), m_fds->end(), remove_if_func), m_fds->end());
+    m_fds_funcs.erase(fd);
+  }
 
   FDType getFDTypeByFD(int fd) {
     for (auto a : m_fds) {
