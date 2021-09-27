@@ -2,19 +2,58 @@
 #include <algorithm>
 #include <arpa/inet.h>
 #include <functional>
+#include <list>
 #include <memory>
+#include <mutex>
 #include <stdio.h>
 #include <string.h>
 #include <sys/epoll.h>
 #include <sys/socket.h>
+#include <thread>
 #include <unistd.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
+
+// using EventType = std::pair<int, uint32_t>;
+using EventType = uint32_t;
 
 class SEpollFDFunc {
 public:
-  SEpollFDFunc() {}
-  ~SEpollFDFunc() {}
+private:
+  int m_fd = -1;
+
+  std::mutex m_mutex;
+  std::thread m_thr;
+  bool m_run_thr = true;
+  std::list<EventType> m_events;
+
+  std::function<void(int fd, short what, void *arg)> m_read_func = NULL;
+  void *m_read_arg = NULL;
+  uint32_t m_read_what = 0;
+
+  std::function<void(int fd, short what, void *arg)> m_write_func = NULL;
+  void *m_write_arg = NULL;
+  uint32_t m_write_what = 0;
+
+public:
+  SEpollFDFunc(int fd) {
+    m_fd = fd;
+    m_run_thr = true;
+    m_thr = std::thread(&SEpollFDFunc::run, this);
+    m_thr.detach();
+  }
+  ~SEpollFDFunc() {
+    m_run_thr = false;
+    if (m_thr.joinable()) {
+      m_thr.join();
+    }
+  }
+
+  void pushEvent(uint32_t what) {
+    std::lock_guard<std::mutex> g(m_mutex);
+    m_events.push_back(what);
+  }
 
   void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg = NULL, uint32_t what = EPOLLIN) {
     m_read_func = read_func;
@@ -28,9 +67,9 @@ public:
     m_read_what = 0;
   };
   bool isReadWhat(uint32_t what) { return what & m_read_what ? true : false; }
-  void executeReadFunc(int fd, short what) {
+  void executeReadFunc(short what) {
     if (m_read_func) {
-      m_read_func(fd, what, m_read_arg);
+      m_read_func(m_fd, what, m_read_arg);
     }
   }
 
@@ -45,22 +84,31 @@ public:
     m_write_what = 0;
   };
   bool isWriteWhat(uint32_t what) { return what & m_write_what ? true : false; }
-  void executeWriteFunc(int fd, short what) {
+  void executeWriteFunc(short what) {
     if (m_write_func) {
-      m_write_func(fd, what, m_write_arg);
+      m_write_func(m_fd, what, m_write_arg);
     }
   }
 
   uint32_t getWhat() { return m_read_what | m_write_what; }
 
 private:
-  std::function<void(int fd, short what, void *arg)> m_read_func = NULL;
-  void *m_read_arg = NULL;
-  uint32_t m_read_what = 0;
+  void run() {
+    while (m_run_thr) {
+      while (!m_events.empty()) {
+        uint32_t what = m_events.front();
+        m_events.pop_front();
+        if (isReadWhat(what)) {
+          executeReadFunc(what);
+        }
+        if (isWriteWhat(what)) {
+          executeWriteFunc(what);
+        }
+      }
 
-  std::function<void(int fd, short what, void *arg)> m_write_func = NULL;
-  void *m_write_arg = NULL;
-  uint32_t m_write_what = 0;
+      std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+  }
 };
 
 template <class FDType, class FDSetFunc, class FDGetFunc> class SEpoll {
@@ -73,7 +121,7 @@ private:
   FDGetFunc m_fd_get_func;
 
   std::shared_ptr<std::vector<ShrFDType>> m_fds = std::make_shared<std::vector<ShrFDType>>();
-  std::unordered_map<int, SEpollFDFunc> m_fds_funcs;
+  std::unordered_map<int, std::shared_ptr<SEpollFDFunc>> m_fds_funcs;
 
   SEPOLL_TYPE m_type = SEPOLL_TYPE::ACCEPT;
 
@@ -135,11 +183,11 @@ public:
     m_init_read_what = what;
   }
   void setReadFunc(int fd, std::function<void(int, short, void *)> func, void *arg = NULL, uint32_t what = EPOLLIN) {
-    m_fds_funcs[fd].setReadFunc(func, arg, what);
+    m_fds_funcs[fd]->setReadFunc(func, arg, what);
     refreshEvent(fd);
   }
   void unsetReadFunc(int fd) {
-    m_fds_funcs[fd].unsetReadFunc();
+    m_fds_funcs[fd]->unsetReadFunc();
     refreshEvent(fd);
   }
 
@@ -148,17 +196,17 @@ public:
     m_init_write_what = what;
   }
   void setWriteFunc(int fd, std::function<void(int, short, void *)> func, void *arg = NULL, uint32_t what = EPOLLOUT) {
-    m_fds_funcs[fd].setWriteFunc(func, arg, what);
+    m_fds_funcs[fd]->setWriteFunc(func, arg, what);
     refreshEvent(fd);
   }
   void unsetWriteFunc(int fd) {
-    m_fds_funcs[fd].unsetWriteFunc();
+    m_fds_funcs[fd]->unsetWriteFunc();
     refreshEvent(fd);
   }
 
   void refreshEvent(int fd) {
     struct epoll_event event;
-    event.events = m_fds_funcs[fd].getWhat();
+    event.events = m_fds_funcs[fd]->getWhat();
     event.data.fd = fd;
     epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
   }
@@ -244,35 +292,30 @@ private:
         ShrFDType set_shrfdt = std::make_shared<FDType>(m_fd_set_func(client_socket));
         m_fds->push_back(set_shrfdt);
 
+        /* set fds_func */
+        if (m_fds_funcs.find(client_socket) == m_fds_funcs.end()) {
+          // m_fds_funcs.insert(std::make_pair(client_socket, new SEpollFDFunc(client_socket)));
+          m_fds_funcs.insert(std::make_pair(client_socket, std::make_shared<SEpollFDFunc>(client_socket)));
+        }
         struct epoll_event client_event;
         client_event.events = 0;
         if (m_init_read_func) {
           client_event.events |= m_init_read_what;
-          m_fds_funcs[client_socket].setReadFunc(m_init_read_func, static_cast<void *>(set_shrfdt.get()), m_init_read_what);
+          m_fds_funcs[client_socket]->setReadFunc(m_init_read_func, static_cast<void *>(set_shrfdt.get()), m_init_read_what);
         }
         if (m_init_write_func) {
           client_event.events |= m_init_write_what;
-          m_fds_funcs[client_socket].setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
+          m_fds_funcs[client_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
         }
         client_event.data.fd = client_socket;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
       }
-    } else {                   // Client Socket Event
-      if (what & EPOLLRDHUP) { // necessary event : disconnection
-        // printf("!!!EPOLLRDHUP!!!\n");
+    } else {                                                               // Client Socket Event
+      if ((what & EPOLLRDHUP) || (what & EPOLLHUP) || (what & EPOLLERR)) { // necessary event : disconnection
+        printf("!!!EPOLLRDHUP || EPOLLHUP || EPOLLERR!!!\n");
         removeFD(who);
-      }
-      if (what & EPOLLHUP) { // necessary event :
-        // printf("!!!EPOLLHUP!!!\n");
-      }
-      if (what & EPOLLERR) { // necessary event :
-        // printf("!!!EPOLLERR!!!\n");
-      }
-      if (m_fds_funcs[who].isReadWhat(what)) {
-        m_fds_funcs[who].executeReadFunc(who, what);
-      }
-      if (m_fds_funcs[who].isWriteWhat(what)) {
-        m_fds_funcs[who].executeWriteFunc(who, what);
+      } else {
+        m_fds_funcs[who]->pushEvent(what);
       }
     }
   }
