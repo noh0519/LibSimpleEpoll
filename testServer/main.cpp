@@ -32,7 +32,6 @@ public:
   }
 
   void loginWriteFunc(int fd, short what) {
-    printf("!!!NBH!!!\n");
     if (what & EPOLLOUT) {
       memset(buff_send, 0x00, 4096);
       if (m_step == 1) {
