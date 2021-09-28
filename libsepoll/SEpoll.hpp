@@ -41,7 +41,6 @@ public:
     m_fd = fd;
     m_run_thr = true;
     m_thr = std::thread(&SEpollFDFunc::run, this);
-    m_thr.detach();
   }
   ~SEpollFDFunc() {
     m_run_thr = false;
