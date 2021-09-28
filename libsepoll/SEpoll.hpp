@@ -26,7 +26,7 @@ private:
   std::mutex m_mutex;
   std::thread m_thr;
   bool m_run_thr = true;
-  std::list<EventType> m_events;
+  std::list<EventType> m_eventtypes;
 
   std::function<void(int fd, short what, void *arg)> m_read_func = NULL;
   void *m_read_arg = NULL;
@@ -51,7 +51,7 @@ public:
 
   void pushEvent(uint32_t what) {
     std::lock_guard<std::mutex> g(m_mutex);
-    m_events.push_back(what);
+    m_eventtypes.push_back(what);
   }
 
   void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg = NULL, uint32_t what = EPOLLIN) {
@@ -94,9 +94,9 @@ public:
 private:
   void run() {
     while (m_run_thr) {
-      while (!m_events.empty()) {
-        uint32_t what = m_events.front();
-        m_events.pop_front();
+      while (!m_eventtypes.empty()) {
+        uint32_t what = m_eventtypes.front();
+        m_eventtypes.pop_front();
         if (isReadWhat(what)) {
           executeReadFunc(what);
         }
@@ -136,17 +136,14 @@ private:
   std::function<void(int, short, void *arg)> m_init_write_func = NULL;
 
   // socket variables
-  int server_socket = -1;
-  struct sockaddr_in server_addr;
-
-  char *buff_rcv;
-  char *buff_snd;
+  int m_sock_fd = -1;
+  struct sockaddr_in m_sock_addr;
   // ~socket variables
 
   // epoll variables
-  int epoll_fd = -1;
-  struct epoll_event server_event;
-  struct epoll_event *events;
+  int m_epoll_fd = -1;
+  struct epoll_event m_event;
+  struct epoll_event *m_events;
   // ~epoll variables
 
 protected:
@@ -164,9 +161,6 @@ public:
     m_buff_size = buff_size;
     m_port = port;
     m_ip = ip;
-
-    buff_rcv = (char *)malloc(sizeof(char) * m_buff_size);
-    buff_snd = (char *)malloc(sizeof(char) * m_buff_size);
 
     if (m_type == SEPOLL_TYPE::ACCEPT) {
       return initAccept();
@@ -207,12 +201,12 @@ public:
     struct epoll_event event;
     event.events = m_fds_funcs[fd]->getWhat();
     event.data.fd = fd;
-    epoll_ctl(epoll_fd, EPOLL_CTL_MOD, fd, &event);
+    epoll_ctl(m_epoll_fd, EPOLL_CTL_MOD, fd, &event);
   }
 
   void run() {
     while (1) {
-      int event_count = epoll_wait(epoll_fd, events, m_epoll_size, -1);
+      int event_count = epoll_wait(m_epoll_fd, m_events, m_epoll_size, -1);
 
       if (event_count == -1) {
         printf("실패\n");
@@ -220,8 +214,8 @@ public:
       }
 
       for (int i = 0; i < event_count; i++) {
-        int who = events[i].data.fd;
-        uint32_t what = events[i].events;
+        int who = m_events[i].data.fd;
+        uint32_t what = m_events[i].events;
         if (m_type == SEPOLL_TYPE::ACCEPT) { // SEPOLL_TYPE::ACCEPT
           runAccept(who, what);
         } else { // SEPOLL_TYPE::CONNECT
@@ -232,44 +226,44 @@ public:
 
 private:
   SEPOLL_RESULT initAccept() {
-    server_socket = socket(PF_INET, SOCK_STREAM, 0);
-    if (server_socket == -1) {
+    m_sock_fd = socket(PF_INET, SOCK_STREAM, 0);
+    if (m_sock_fd == -1) {
       printf("socket 생성 실패\n");
       return SEPOLL_RESULT::FAIL;
     }
 
     int optval = 1;
-    setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
+    setsockopt(m_sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-    memset(&server_addr, 0, sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(m_port);
-    server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    memset(&m_sock_addr, 0, sizeof(m_sock_addr));
+    m_sock_addr.sin_family = AF_INET;
+    m_sock_addr.sin_port = htons(m_port);
+    m_sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
-    if (bind(server_socket, (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1) {
+    if (bind(m_sock_fd, (struct sockaddr *)&m_sock_addr, sizeof(m_sock_addr)) == -1) {
       printf("bind 실패\n");
       return SEPOLL_RESULT::FAIL;
     }
 
-    if (listen(server_socket, 5) == -1) {
+    if (listen(m_sock_fd, 5) == -1) {
       printf("listen 모드 설정 실패\n");
       return SEPOLL_RESULT::FAIL;
     }
 
     /* epoll create */
-    if ((epoll_fd = epoll_create1(0)) == -1) {
+    if ((m_epoll_fd = epoll_create1(0)) == -1) {
       printf("server epoll 생성 실패\n");
       return SEPOLL_RESULT::FAIL;
     }
 
     /* epoll ctl add server socket */
-    // server_event.events = EPOLLIN | EPOLLRDHUP;
-    server_event.events = EPOLLIN;
-    server_event.data.fd = server_socket;
-    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, server_socket, &server_event);
+    // m_event.events = EPOLLIN | EPOLLRDHUP;
+    m_event.events = EPOLLIN;
+    m_event.data.fd = m_sock_fd;
+    epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_sock_fd, &m_event);
 
-    /* alloc events */
-    events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * m_epoll_size);
+    /* alloc m_events */
+    m_events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * m_epoll_size);
 
     return SEPOLL_RESULT::SUCCESS;
   }
@@ -277,14 +271,14 @@ private:
   SEPOLL_RESULT initConnect() { return SEPOLL_RESULT::SUCCESS; }
 
   void runAccept(int who, uint32_t what) {
-    if (who == server_socket) { // Server Socket Event
+    if (who == m_sock_fd) { // Server Socket Event
       if (what & EPOLLIN) {
         int client_socket;
         struct sockaddr_in client_addr;
         socklen_t client_addr_size;
 
         client_addr_size = sizeof(client_addr);
-        client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &client_addr_size);
+        client_socket = accept(m_sock_fd, (struct sockaddr *)&client_addr, &client_addr_size);
 
         /* set fds */
         // FDType set_fdt = m_fd_set_func(client_socket);
@@ -307,7 +301,7 @@ private:
           m_fds_funcs[client_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
         }
         client_event.data.fd = client_socket;
-        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
+        epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
       }
     } else { // Client Socket Event
       m_fds_funcs[who]->pushEvent(what);
@@ -322,7 +316,7 @@ private:
 
   void removeFD(int fd) {
     close(fd);
-    epoll_ctl(epoll_fd, EPOLL_CTL_DEL, fd, NULL);
+    epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
     auto remove_if_func = [fgf = m_fd_get_func, fd](std::shared_ptr<FDType> fdt) -> bool {
       if (fgf(*fdt) == fd) {
         return true;
