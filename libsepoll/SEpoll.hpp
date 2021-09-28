@@ -309,12 +309,11 @@ private:
         client_event.data.fd = client_socket;
         epoll_ctl(epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
       }
-    } else {                                                               // Client Socket Event
-      if ((what & EPOLLRDHUP) || (what & EPOLLHUP) || (what & EPOLLERR)) { // necessary event : disconnection
-        printf("!!!EPOLLRDHUP || EPOLLHUP || EPOLLERR!!!\n");
+    } else { // Client Socket Event
+      m_fds_funcs[who]->pushEvent(what);
+      if ((what & EPOLLRDHUP) || (what & EPOLLHUP) || (what & EPOLLERR)) { // necessary event : disconnection, error
+        // printf("!!!EPOLLRDHUP || EPOLLHUP || EPOLLERR!!!\n");
         removeFD(who);
-      } else {
-        m_fds_funcs[who]->pushEvent(what);
       }
     }
   }
