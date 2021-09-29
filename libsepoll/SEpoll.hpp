@@ -206,22 +206,12 @@ public:
 
   void run() {
     while (1) {
-      int event_count = epoll_wait(m_epoll_fd, m_events, m_epoll_size, -1);
-
-      if (event_count == -1) {
-        printf("실패\n");
-        continue;
+      if (m_type == SEPOLL_TYPE::ACCEPT) { // SEPOLL_TYPE::ACCEPT
+        runAccept();
+      } else { // SEPOLL_TYPE::CONNECT
+        runConnect();
       }
-
-      for (int i = 0; i < event_count; i++) {
-        int who = m_events[i].data.fd;
-        uint32_t what = m_events[i].events;
-        if (m_type == SEPOLL_TYPE::ACCEPT) { // SEPOLL_TYPE::ACCEPT
-          runAccept(who, what);
-        } else { // SEPOLL_TYPE::CONNECT
-        }
-      } // ~for (int i = 0; i < event_count; i++)
-    }   // ~while (1)
+    } // ~while (1)
   }
 
 private:
@@ -256,8 +246,7 @@ private:
       return SEPOLL_RESULT::FAIL;
     }
 
-    /* epoll ctl add server socket */
-    // m_event.events = EPOLLIN | EPOLLRDHUP;
+    /* epoll ctl add socket */
     m_event.events = EPOLLIN;
     m_event.data.fd = m_sock_fd;
     epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_sock_fd, &m_event);
@@ -268,51 +257,111 @@ private:
     return SEPOLL_RESULT::SUCCESS;
   }
 
-  SEPOLL_RESULT initConnect() { return SEPOLL_RESULT::SUCCESS; }
+  SEPOLL_RESULT initConnect() {
+    m_sock_fd = socket(PF_INET, SOCK_STREAM, 0);
+    if (m_sock_fd == -1) {
+      printf("socket create fail\n");
+      return SEPOLL_RESULT::FAIL;
+    }
 
-  void runAccept(int who, uint32_t what) {
-    if (who == m_sock_fd) { // Server Socket Event
-      if (what & EPOLLIN) {
-        int client_socket;
-        struct sockaddr_in client_addr;
-        socklen_t client_addr_size;
+    int optval = 1;
+    setsockopt(m_sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
 
-        client_addr_size = sizeof(client_addr);
-        client_socket = accept(m_sock_fd, (struct sockaddr *)&client_addr, &client_addr_size);
+    memset(&m_sock_addr, 0x00, sizeof(sockaddr_in));
+    m_sock_addr.sin_family = AF_INET;
+    m_sock_addr.sin_port = htons(m_port);
+    m_sock_addr.sin_addr.s_addr = inet_addr(m_ip.c_str());
 
-        /* set fds */
-        // FDType set_fdt = m_fd_set_func(client_socket);
-        ShrFDType set_shrfdt = std::make_shared<FDType>(m_fd_set_func(client_socket));
-        m_fds->push_back(set_shrfdt);
+    /* epoll create */
+    if ((m_epoll_fd = epoll_create1(0)) == -1) {
+      printf("epoll create fail\n");
+      return SEPOLL_RESULT::FAIL;
+    }
 
-        /* set fds_func */
-        if (m_fds_funcs.find(client_socket) == m_fds_funcs.end()) {
-          // m_fds_funcs.insert(std::make_pair(client_socket, new SEpollFDFunc(client_socket)));
-          m_fds_funcs.insert(std::make_pair(client_socket, std::make_shared<SEpollFDFunc>(client_socket)));
+    /* alloc event */
+    m_events = (struct epoll_event *)malloc(sizeof(struct epoll_event) * m_epoll_size);
+
+    return SEPOLL_RESULT::SUCCESS;
+  }
+
+  void runAccept() {
+    int event_count = epoll_wait(m_epoll_fd, m_events, m_epoll_size, -1);
+
+    if (event_count == -1) {
+      printf("실패\n");
+    }
+
+    for (int i = 0; i < event_count; i++) {
+      int who = m_events[i].data.fd;
+      uint32_t what = m_events[i].events;
+
+      if (who == m_sock_fd) { // m_sock_fd event
+        if (what & EPOLLIN) {
+          int connect_socket;
+          struct sockaddr_in connect_addr;
+          socklen_t connect_addr_size;
+
+          connect_addr_size = sizeof(connect_addr);
+          connect_socket = accept(m_sock_fd, (struct sockaddr *)&connect_addr, &connect_addr_size);
+
+          /* set fds */
+          ShrFDType set_shrfdt = std::make_shared<FDType>(m_fd_set_func(connect_socket));
+          m_fds->push_back(set_shrfdt);
+
+          /* set fds_func */
+          if (m_fds_funcs.find(connect_socket) == m_fds_funcs.end()) {
+            m_fds_funcs.insert(std::make_pair(connect_socket, std::make_shared<SEpollFDFunc>(connect_socket)));
+          }
+          struct epoll_event client_event;
+          client_event.events = 0;
+          if (m_init_read_func) {
+            client_event.events |= m_init_read_what;
+            m_fds_funcs[connect_socket]->setReadFunc(m_init_read_func, static_cast<void *>(set_shrfdt.get()), m_init_read_what);
+          }
+          if (m_init_write_func) {
+            client_event.events |= m_init_write_what;
+            m_fds_funcs[connect_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
+          }
+          client_event.data.fd = connect_socket;
+          epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, connect_socket, &client_event);
         }
-        struct epoll_event client_event;
-        client_event.events = 0;
-        if (m_init_read_func) {
-          client_event.events |= m_init_read_what;
-          m_fds_funcs[client_socket]->setReadFunc(m_init_read_func, static_cast<void *>(set_shrfdt.get()), m_init_read_what);
+      } else { // connected sock event
+        m_fds_funcs[who]->pushEvent(what);
+        if ((what & EPOLLRDHUP) || (what & EPOLLHUP) || (what & EPOLLERR)) { // necessary event : disconnection, error
+          // printf("!!!EPOLLRDHUP || EPOLLHUP || EPOLLERR!!!\n");
+          removeFD(who);
         }
-        if (m_init_write_func) {
-          client_event.events |= m_init_write_what;
-          m_fds_funcs[client_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
-        }
-        client_event.data.fd = client_socket;
-        epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, client_socket, &client_event);
-      }
-    } else { // Client Socket Event
-      m_fds_funcs[who]->pushEvent(what);
-      if ((what & EPOLLRDHUP) || (what & EPOLLHUP) || (what & EPOLLERR)) { // necessary event : disconnection, error
-        // printf("!!!EPOLLRDHUP || EPOLLHUP || EPOLLERR!!!\n");
-        removeFD(who);
       }
     }
   }
 
-  void runConnect(int who, uint32_t what) {}
+  void runConnect() {
+#if 0
+    /* connect */
+    if (m_sock_addr == -1) {
+      if (connect(m_sock_fd, (struct sockaddr *)&m_sock_addr, sizeof(m_sock_addr)) == -1) {
+        printf("socket connect fail\n");
+        return;
+      } else {
+        /* epoll ctl add socket */
+        m_event.events = EPOLLIN;
+        m_event.data.fd = m_sock_fd;
+        epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, m_sock_fd, &m_event);
+      }
+    }
+
+    int event_count = epoll_wait(m_epoll_fd, m_events, m_epoll_size, -1);
+
+    if (event_count == -1) {
+      printf("실패\n");
+    }
+
+    for (int i = 0; i < event_count; i++) {
+      int who = m_events[i].data.fd;
+      uint32_t what = m_events[i].events;
+    }
+#endif
+  }
 
   void removeFD(int fd) {
     close(fd);
