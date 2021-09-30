@@ -1,0 +1,38 @@
+cmake_minimum_required(VERSION 3.16)
+
+include(FetchContent)
+
+FetchContent_Declare(smartdb
+  GIT_REPOSITORY https://github.com/chicchicforkfork/SmartDB.git
+  GIT_TAG        master
+)
+
+FetchContent_Declare(sensordb
+  GIT_REPOSITORY https://github.com/chicchicforkfork/SensorDB.git
+  GIT_TAG        master
+)
+FetchContent_MakeAvailable(smartdb sensordb)
+
+
+add_compile_options(-W -Wall -g -fpermissive)
+
+set(LIBSEPOLL_PATH ../libsepoll/)
+
+add_executable(controller_net main.cpp)
+
+target_include_directories(controller_net
+PUBLIC
+    ${LIBSEPOLL_PATH}
+    ${smartdb_INCLUDE_DIRS}
+)
+
+target_link_directories(controller_net
+PUBLIC
+    ${LIBSEPOLL_PATH}/build/
+)
+
+target_link_libraries(controller_net
+    pthread
+    sepoll
+    smartdb
+)
