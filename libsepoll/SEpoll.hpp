@@ -110,22 +110,24 @@ private:
   }
 };
 
-template <class FDType, class FDSetFunc, class FDGetFunc> class SEpoll {
+// template <class FDType, class FDSetFunc, class FDGetFunc> class SEpoll {
+template <class FDType> class SEpoll {
 public:
 private:
   // std::mutext m_fds_mutex;
 
-  typedef std::shared_ptr<FDType> ShrFDType;
-  FDSetFunc m_fd_set_func;
-  FDGetFunc m_fd_get_func;
+  // FDSetFunc m_fd_set_func;
+  // FDGetFunc m_fd_get_func;
+  std::function<void(FDType &, int)> m_fd_set_func;
+  std::function<int(FDType)> m_fd_get_func;
 
-  std::shared_ptr<std::vector<ShrFDType>> m_fds = std::make_shared<std::vector<ShrFDType>>();
+  // std::shared_ptr<std::vector<std::shared_ptr<FDType>>> m_fds = std::make_shared<std::vector<std::shared_ptr<FDType>>>();
+  std::shared_ptr<std::vector<std::shared_ptr<FDType>>> m_fds;
   std::unordered_map<int, std::shared_ptr<SEpollFDFunc>> m_fds_funcs;
 
   SEPOLL_TYPE m_type = SEPOLL_TYPE::ACCEPT;
 
   uint32_t m_epoll_size = 1024;
-  uint32_t m_buff_size = 2048;
   uint16_t m_port = 4000;
   std::string m_ip = "";
 
@@ -148,19 +150,20 @@ private:
 
 protected:
 public:
-  SEpoll(FDSetFunc fd_set_func, FDGetFunc fd_get_func) {
+  SEpoll(std::function<void(FDType &, int)> fd_set_func, std::function<int(FDType)> fd_get_func) {
     m_fd_set_func = fd_set_func;
     m_fd_get_func = fd_get_func;
   }
   ~SEpoll() {}
 
-  SEPOLL_RESULT init(SEPOLL_TYPE type, uint32_t epoll_size, uint32_t buff_size, uint16_t port, std::string ip) {
+  SEPOLL_RESULT init(SEPOLL_TYPE type, std::string ip, uint16_t port, std::shared_ptr<std::vector<std::shared_ptr<FDType>>> fds) {
     m_type = type;
 
-    m_epoll_size = epoll_size;
-    m_buff_size = buff_size;
     m_port = port;
     m_ip = ip;
+
+    m_fds = fds;
+    m_epoll_size = fds->size() + 1;
 
     if (m_type == SEPOLL_TYPE::ACCEPT) {
       return initAccept();
@@ -169,7 +172,7 @@ public:
     }
   }
 
-  void getObjVectorPtr(std::shared_ptr<std::vector<ShrFDType>> &fds) { fds = m_fds; }
+  // void getObjVectorPtr(std::shared_ptr<std::vector<std::shared_ptr<FDType>>> &fds) { fds = m_fds; }
 
   void setInitReadFunc(std::function<void(int, short, void *)> func, uint32_t what = EPOLLIN) {
     m_init_read_func = func;
@@ -305,8 +308,15 @@ private:
           connect_socket = accept(m_sock_fd, (struct sockaddr *)&connect_addr, &connect_addr_size);
 
           /* set fds */
-          ShrFDType set_shrfdt = std::make_shared<FDType>(m_fd_set_func(connect_socket));
-          m_fds->push_back(set_shrfdt);
+          auto find_shrfdt = std::find_if(m_fds->begin(), m_fds->end(),
+                                          [fgf = m_fd_get_func](std::shared_ptr<FDType> fdt) -> bool { return fgf(*fdt) == -1; });
+          if (find_shrfdt == m_fds->end()) {
+            close(connect_socket);
+            continue;
+          } else {
+            // set fd
+            m_fd_set_func(**find_shrfdt, connect_socket);
+          }
 
           /* set fds_func */
           if (m_fds_funcs.find(connect_socket) == m_fds_funcs.end()) {
@@ -316,11 +326,11 @@ private:
           client_event.events = 0;
           if (m_init_read_func) {
             client_event.events |= m_init_read_what;
-            m_fds_funcs[connect_socket]->setReadFunc(m_init_read_func, static_cast<void *>(set_shrfdt.get()), m_init_read_what);
+            m_fds_funcs[connect_socket]->setReadFunc(m_init_read_func, static_cast<void *>(find_shrfdt->get()), m_init_read_what);
           }
           if (m_init_write_func) {
             client_event.events |= m_init_write_what;
-            m_fds_funcs[connect_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(set_shrfdt.get()), m_init_write_what);
+            m_fds_funcs[connect_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(find_shrfdt->get()), m_init_write_what);
           }
           client_event.data.fd = connect_socket;
           epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, connect_socket, &client_event);
@@ -366,14 +376,11 @@ private:
   void removeFD(int fd) {
     close(fd);
     epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
-    auto remove_if_func = [fgf = m_fd_get_func, fd](std::shared_ptr<FDType> fdt) -> bool {
-      if (fgf(*fdt) == fd) {
-        return true;
-      } else {
-        return false;
-      }
-    };
-    m_fds->erase(remove_if(m_fds->begin(), m_fds->end(), remove_if_func), m_fds->end());
+    auto find_shrfdt = std::find_if(m_fds->begin(), m_fds->end(),
+                                    [fgf = m_fd_get_func, fd](std::shared_ptr<FDType> fdt) -> bool { return fgf(*fdt) == fd; });
+    if (find_shrfdt != m_fds->end()) {
+      m_fd_set_func(**find_shrfdt, -1);
+    }
     m_fds_funcs.erase(fd);
   }
 
