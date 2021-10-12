@@ -110,18 +110,14 @@ private:
   }
 };
 
-// template <class FDType, class FDSetFunc, class FDGetFunc> class SEpoll {
 template <class FDType> class SEpoll {
 public:
 private:
   // std::mutext m_fds_mutex;
 
-  // FDSetFunc m_fd_set_func;
-  // FDGetFunc m_fd_get_func;
   std::function<void(FDType &, int)> m_fd_set_func;
   std::function<int(FDType)> m_fd_get_func;
 
-  // std::shared_ptr<std::vector<std::shared_ptr<FDType>>> m_fds = std::make_shared<std::vector<std::shared_ptr<FDType>>>();
   std::shared_ptr<std::vector<std::shared_ptr<FDType>>> m_fds;
   std::unordered_map<int, std::shared_ptr<SEpollFDFunc>> m_fds_funcs;
 
@@ -150,20 +146,19 @@ private:
 
 protected:
 public:
-  SEpoll(std::function<void(FDType &, int)> fd_set_func, std::function<int(FDType)> fd_get_func) {
+  SEpoll(std::function<void(FDType &, int)> fd_set_func, std::function<int(FDType)> fd_get_func,
+         std::shared_ptr<std::vector<std::shared_ptr<FDType>>> fds) {
     m_fd_set_func = fd_set_func;
     m_fd_get_func = fd_get_func;
+    m_fds = fds;
+    m_epoll_size = fds->size() + 1;
   }
-  ~SEpoll() {}
 
-  SEPOLL_RESULT init(SEPOLL_TYPE type, std::string ip, uint16_t port, std::shared_ptr<std::vector<std::shared_ptr<FDType>>> fds) {
+  SEPOLL_RESULT init(SEPOLL_TYPE type, std::string ip, uint16_t port) {
     m_type = type;
 
     m_port = port;
     m_ip = ip;
-
-    m_fds = fds;
-    m_epoll_size = fds->size() + 1;
 
     if (m_type == SEPOLL_TYPE::ACCEPT) {
       return initAccept();
@@ -171,8 +166,6 @@ public:
       return initConnect();
     }
   }
-
-  // void getObjVectorPtr(std::shared_ptr<std::vector<std::shared_ptr<FDType>>> &fds) { fds = m_fds; }
 
   void setInitReadFunc(std::function<void(int, short, void *)> func, uint32_t what = EPOLLIN) {
     m_init_read_func = func;
