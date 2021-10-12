@@ -68,28 +68,22 @@ private:
   char buff_send[4096] = {0};
 };
 
-typedef std::function<MyFDClass(int)> FDSetFunc;
-auto lamFDSetFunc = [](int fd) -> MyFDClass {
-  MyFDClass mfc(fd);
-  return mfc;
-};
-typedef std::function<int(MyFDClass)> FDGetFunc;
+auto lamFDSetFunc = [](MyFDClass mfc, int fd) -> void { mfc.setFD(fd); };
 auto lamFDGetFunc = [](MyFDClass mfc) -> int { return mfc.getFD(); };
-
-std::shared_ptr<std::vector<std::shared_ptr<MyFDClass>>> mfcs;
 
 int main(int argc, char **argv) {
   printf("Start Server\n");
+  std::shared_ptr<std::vector<std::shared_ptr<MyFDClass>>> mfcs = std::make_shared<std::vector<std::shared_ptr<MyFDClass>>>();
+  // TODO: set mfcs element
 
-  SEpoll<MyFDClass, FDSetFunc, FDGetFunc> mysepoll(lamFDSetFunc, lamFDGetFunc);
-  mysepoll.getObjVectorPtr(mfcs);
-  mysepoll.init(SEPOLL_TYPE::ACCEPT, 1024, 4096, 4000, "127.0.0.1");
+  SEpoll<MyFDClass> mysepoll(lamFDSetFunc, lamFDGetFunc, mfcs);
+  mysepoll.init(SEPOLL_TYPE::ACCEPT, "127.0.0.1", 4000);
   mysepoll.setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<MyFDClass *>(arg)->loginReadFunc(fd, what); },
                            EPOLLIN | EPOLLHUP | EPOLLRDHUP | EPOLLERR);
   mysepoll.setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<MyFDClass *>(arg)->loginWriteFunc(fd, what); },
                             EPOLLOUT);
 
-  std::thread tsepoll(&SEpoll<MyFDClass, FDSetFunc, FDGetFunc>::run, &mysepoll);
+  std::thread tsepoll(&SEpoll<MyFDClass>::run, &mysepoll);
   tsepoll.detach();
 
   int loop_cnt = 0;
