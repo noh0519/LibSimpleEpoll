@@ -1,4 +1,5 @@
-
+#include "SEpoll.hpp"
+#include "socketmanager.hpp"
 #include <iostream>
 #include <smartmq.hpp>
 
@@ -118,7 +119,49 @@ static json ap_client_data() {
 
   return ap_client_db;
 }
-int main(int argc, char **argv) { //
+
+int main(int argc, char **argv) {
+  // set sensor vector
+  std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sms = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
+  std::shared_ptr<SocketManager> wlancollector_sensor = std::make_shared<SocketManager>("Secui00@!");
+  (*sms).push_back(wlancollector_sensor);
+  std::shared_ptr<SocketManager> polprovider_sensor = std::make_shared<SocketManager>("Secui00@!");
+  (*sms).push_back(polprovider_sensor);
+
+  // set SEpoll
+  auto lamb_setFunc = [](SocketManager &sm, int sock) -> void {
+    sm.setSock(sock);
+    if (sock == -1) {
+      sm.setState(ConnectionState::INIT);
+    } else if (sm.getSock() == -1 && sock > 0) {
+      sm.setState(ConnectionState::VERIFY_MAC);
+    }
+  };
+  auto lamb_getFunc = [](SocketManager sm) -> int { return sm.getSock(); };
+  SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sms);
+  mysepoll.init(SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
+  mysepoll.setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginReadFunc(fd, what); },
+                           EPOLLIN);
+  mysepoll.setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },
+                            EPOLLOUT);
+
+  std::thread tsepoll(&SEpoll<SocketManager>::run, mysepoll);
+  // ~set SEpoll
+
+  // wait all obj set
+  while (true) {
+    printf("sms size : %d\n", (*sms).size());
+    int obj_number = 0;
+    for (auto a : *sms) {
+      if (a->isConnected()) {
+      }
+      obj_number++;
+    }
+
+    std::this_thread::sleep_for(std::chrono::seconds(1));
+  }
+  // ~wait all obj set
+
   (void)argc;
   (void)argv;
 

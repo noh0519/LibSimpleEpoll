@@ -14,11 +14,11 @@ FetchContent_Declare(sensordb
 FetchContent_MakeAvailable(smartdb sensordb)
 
 
-add_compile_options(-W -Wall -g -fpermissive)
+add_compile_options(-W -Wall -g -fpermissive -std=c++17)
 
 set(LIBSEPOLL_PATH ../libsepoll/)
 
-add_executable(controller_net main.cpp)
+add_executable(controller_net main.cpp socketmanager.cpp packet.cpp md5.cpp sha256.cpp ap.cpp client.cpp)
 
 target_include_directories(controller_net
 PUBLIC
