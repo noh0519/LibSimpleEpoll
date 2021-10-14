@@ -23,6 +23,7 @@ void SocketManager::loginReadFunc(int fd, short what) {
 #ifdef TMI
     fmt::print("Err decrypt\n");
 #endif
+    printf("Err decrypt\n");
     _state = ConnectionState::INIT;
     return;
   }
@@ -38,6 +39,7 @@ void SocketManager::loginReadFunc(int fd, short what) {
 #ifdef TMI
     fmt::print("Err verifyPacketHeaderLength\n");
 #endif
+    printf("Err verifyPacketHeaderLength\n");
     _state = ConnectionState::INIT;
     return;
   }
@@ -62,6 +64,7 @@ void SocketManager::loginReadFunc(int fd, short what) {
         _state = ConnectionState::LOGIN_SUCCESS;
         sendLoginSuccess();
         // fmt::print("Login Success\n");
+        printf("Login Success (%d)\n", _sock);
       } else {
 #ifdef TMI
         fmt::print("Failed verify auth code\n");
@@ -80,6 +83,7 @@ void SocketManager::loginReadFunc(int fd, short what) {
     auto sensor_id = (*decrypted).getSensorID();
     if (sensor_id) {
       // fmt::print("get sensor_id: {}\n", *sensor_id);
+      printf("get sensor_id: %d (%d)\n", *sensor_id, _sock);
       _sensor_id = *sensor_id;
       _state = ConnectionState::SET_SENSOR_ID;
     } else {
@@ -93,6 +97,7 @@ void SocketManager::loginReadFunc(int fd, short what) {
   } else if (_state == ConnectionState::SET_SENSOR_ID) {
     _mode = *(*decrypted).getMode();
     // fmt::print("bev_: {:p} - get mode: {}\n", fmt::ptr(se->bev_), _mode);
+    printf("get mode : %d (%d)\n", _mode, _sock);
     if (_mode == ConnectionMode::DATA) {
       // TODO: Need Set Event (Data Mode)
       _state = ConnectionState::REQUEST_DATA;
@@ -123,8 +128,10 @@ void SocketManager::recvData(Packet &p) {
   do {
     ret = recv(_sock, buf + size, sizeof(Header) - size, flags);
     if (ret < 0) {
+      printf("receive < 0 ! (%d)\n", _sock);
       return;
     } else if (ret == 0) {
+      printf("receive == 0 ! (%d)\n", _sock);
       return;
     }
     size += ret;
@@ -138,6 +145,13 @@ void SocketManager::recvData(Packet &p) {
   uint32_t header_length = p.getHeaderLength();
   do {
     ret = recv(_sock, buf + size, header_length - size, flags);
+    if (ret < 0) {
+      return;
+      printf("receive < 0 !! (%d)\n", _sock);
+    } else if (ret == 0) {
+      printf("receive == 0 !! (%d)\n", _sock);
+      return;
+    }
     size += ret;
   } while (size != header_length);
   p.insert(buf, size);
@@ -145,7 +159,12 @@ void SocketManager::recvData(Packet &p) {
   // printf("end packet receive (%d)\n", _sock);
 }
 
-void SocketManager::sendData(Packet &p) { send(_sock, p.data(), p.data() + p.size(), 0); }
+void SocketManager::sendData(Packet &p) {
+  // printf("sendData start (%lu) (%d)\n", p.size(), _sock);
+  send(_sock, p.data(), p.size(), 0);
+  // int ret = send(_sock, p.data(), p.size(), 0);
+  // printf("sendData end %d (%d)\n", ret, _sock);
+}
 
 bool SocketManager::verifyPacketHeaderLength(std::vector<uint8_t> vec) {
   if (getHeaderLength(vec) == vec.size() - sizeof(Header)) {

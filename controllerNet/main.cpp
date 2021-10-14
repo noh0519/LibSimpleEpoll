@@ -129,12 +129,12 @@ int main(int argc, char **argv) {
 
   // set SEpoll
   auto lamb_setFunc = [](SocketManager &sm, int sock) -> void {
-    sm.setSock(sock);
     if (sock == -1) {
       sm.setState(ConnectionState::INIT);
     } else if (sm.getSock() == -1 && sock > 0) {
       sm.setState(ConnectionState::VERIFY_MAC);
     }
+    sm.setSock(sock);
   };
   auto lamb_getFunc = [](SocketManager sm) -> int { return sm.getSock(); };
   SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sms);
@@ -149,7 +149,6 @@ int main(int argc, char **argv) {
 
   // wait all obj set
   while (true) {
-    printf("sms size : %d\n", (*sms).size());
     int obj_number = 0;
     for (auto a : *sms) {
       if (a->isConnected()) {

@@ -47,6 +47,7 @@ std::vector<uint8_t> Packet::getAuthCode() {
 
   if (static_cast<LoginRequest>((*body).type) != LoginRequest::CHALLENGE) {
     // fmt::print("Not body type challenge : {}\n", static_cast<int>((*body).type));
+    printf("Not body type challenge : %d\n", static_cast<int>((*body).type));
     return auth_code;
   }
   while (true) {
@@ -248,7 +249,7 @@ void Packet::makeSensorModel(const uint8_t &model) {
 }
 
 tl::optional<Packet> Packet::makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                           const std::string shared_key) {
+                                               const std::string shared_key) {
   Packet p;
 
   p.makeSensorID(sensor_id);
@@ -264,7 +265,7 @@ tl::optional<Packet> Packet::makeSessionAPData(const int &index, const uint32_t 
 }
 
 tl::optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                        const std::string shared_key) {
+                                            const std::string shared_key) {
   Packet p;
 
   p.makeSensorID(sensor_id);
@@ -279,7 +280,7 @@ tl::optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32
 }
 
 tl::optional<Packet> Packet::makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                               const std::string shared_key) {
+                                                   const std::string shared_key) {
   Packet p;
 
   p.makeSensorID(sensor_id);
@@ -295,7 +296,7 @@ tl::optional<Packet> Packet::makeSessionClientData(const int &index, const uint3
 }
 
 tl::optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                            const std::string shared_key) {
+                                                const std::string shared_key) {
   Packet p;
 
   p.makeSensorID(sensor_id);
@@ -310,7 +311,7 @@ tl::optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, 
 }
 
 tl::optional<Packet> Packet::makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
-                                        const std::string shared_key) {
+                                            const std::string shared_key) {
   Packet p;
 
   p.makeSensorID(sensor_id);
@@ -559,7 +560,7 @@ void Packet::makeHeader(uint16_t send_seq) {
 }
 
 tl::optional<Packet> Packet::makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
-                                                    const std::string shared_key) {
+                                                        const std::string shared_key) {
   Packet p;
 
   p.makeLoginResponseTLV(LoginValue::AUTH, MD5::HASH_SIZE, auth_code);
