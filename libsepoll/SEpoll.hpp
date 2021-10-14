@@ -23,10 +23,12 @@ public:
 private:
   int m_fd = -1;
 
-  std::mutex m_mutex;
+  std::recursive_mutex m_mutex_what;
+  std::recursive_mutex m_mutex_read;
+  std::recursive_mutex m_mutex_write;
   std::thread m_thr;
   bool m_run_thr = true;
-  std::list<EventType> m_eventtypes;
+  uint32_t m_what = 0;
 
   std::function<void(int fd, short what, void *arg)> m_read_func = NULL;
   void *m_read_arg = NULL;
@@ -49,60 +51,84 @@ public:
     }
   }
 
-  void pushEvent(uint32_t what) {
-    std::lock_guard<std::mutex> g(m_mutex);
-    m_eventtypes.push_back(what);
+  void orEvent(uint32_t what) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_what);
+    m_what |= what;
+  }
+
+  void setEvent(uint32_t what) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_what);
+    m_what = what;
+  }
+
+  uint32_t getEvent() {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_what);
+    return m_what;
   }
 
   void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg = NULL, uint32_t what = EPOLLIN) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     m_read_func = read_func;
     m_read_arg = arg;
     m_read_what = what;
     m_read_what |= EPOLLRDHUP | EPOLLHUP | EPOLLERR; // necessary event
   }
   void unsetReadFunc() {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     m_read_func = NULL;
     m_read_arg = NULL;
     m_read_what = 0;
   };
-  bool isReadWhat(uint32_t what) { return what & m_read_what ? true : false; }
+  bool isReadWhat(uint32_t what) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
+    return what & m_read_what ? true : false;
+  }
   void executeReadFunc(short what) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     if (m_read_func) {
       m_read_func(m_fd, what, m_read_arg);
     }
   }
 
   void setWriteFunc(std::function<void(int fd, short what, void *arg)> write_func, void *arg = NULL, uint32_t what = EPOLLOUT) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     m_write_func = write_func;
     m_write_arg = arg;
     m_write_what = what;
   }
   void unsetWriteFunc() {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     m_write_func = NULL;
     m_write_arg = NULL;
     m_write_what = 0;
   };
-  bool isWriteWhat(uint32_t what) { return what & m_write_what ? true : false; }
+  bool isWriteWhat(uint32_t what) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
+    return what & m_write_what ? true : false;
+  }
   void executeWriteFunc(short what) {
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     if (m_write_func) {
       m_write_func(m_fd, what, m_write_arg);
     }
   }
 
-  uint32_t getWhat() { return m_read_what | m_write_what; }
+  uint32_t getWhat() { //
+    return m_read_what | m_write_what;
+  }
 
 private:
   void run() {
     while (m_run_thr) {
-      while (!m_eventtypes.empty()) {
-        uint32_t what = m_eventtypes.front();
-        m_eventtypes.pop_front();
+      uint32_t what = getEvent();
+      if (what != 0) {
         if (isReadWhat(what)) {
           executeReadFunc(what);
         }
         if (isWriteWhat(what)) {
           executeWriteFunc(what);
         }
+        setEvent(0);
       }
 
       std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -113,7 +139,7 @@ private:
 template <class FDType> class SEpoll {
 public:
 private:
-  // std::mutext m_fds_mutex;
+  // std::recursive_mutext m_fds_mutex;
 
   std::function<void(FDType &, int)> m_fd_set_func;
   std::function<int(FDType)> m_fd_get_func;
@@ -191,6 +217,10 @@ public:
   void unsetWriteFunc(int fd) {
     m_fds_funcs[fd]->unsetWriteFunc();
     refreshEvent(fd);
+  }
+
+  void removeEvent(int fd) { //
+    epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
   }
 
   void refreshEvent(int fd) {
@@ -329,7 +359,7 @@ private:
           epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, connect_socket, &client_event);
         }
       } else { // connected sock event
-        m_fds_funcs[who]->pushEvent(what);
+        m_fds_funcs[who]->orEvent(what);
         if ((what & EPOLLRDHUP) || (what & EPOLLHUP) || (what & EPOLLERR)) { // necessary event : disconnection, error
           // printf("!!!EPOLLRDHUP || EPOLLHUP || EPOLLERR!!!\n");
           removeFD(who);
