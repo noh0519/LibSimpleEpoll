@@ -120,12 +120,19 @@ static json ap_client_data() {
 }
 
 int main(int argc, char **argv) {
+  (void)argc;
+  (void)argv;
+#if 1
+  auto sensor_data = ap_client_data();
+  std::cout << sensor_data.dump(4) << std::endl;
+#endif
+#if 0
   // set sensor vector
-  std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sms = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
+  std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
   std::shared_ptr<SocketManager> wlancollector_sensor = std::make_shared<SocketManager>("Secui00@!");
-  (*sms).push_back(wlancollector_sensor);
+  (*sockmans).push_back(wlancollector_sensor);
   std::shared_ptr<SocketManager> polprovider_sensor = std::make_shared<SocketManager>("Secui00@!");
-  (*sms).push_back(polprovider_sensor);
+  (*sockmans).push_back(polprovider_sensor);
 
   // set SEpoll
   auto lamb_setFunc = [](SocketManager &sm, int sock) -> void {
@@ -137,34 +144,57 @@ int main(int argc, char **argv) {
     sm.setSock(sock);
   };
   auto lamb_getFunc = [](SocketManager sm) -> int { return sm.getSock(); };
-  SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sms);
+  SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sockmans);
   mysepoll.init(SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
   mysepoll.setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginReadFunc(fd, what); },
                            EPOLLIN);
-  mysepoll.setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },
-                            EPOLLOUT);
+  // mysepoll.setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },
+  //                           EPOLLOUT);
 
-  std::thread tsepoll(&SEpoll<SocketManager>::run, mysepoll);
+  std::thread tsepoll(&SEpoll<SocketManager>::run, &mysepoll);
+  tsepoll.detach();
   // ~set SEpoll
 
   // wait all obj set
+  std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans_data =
+      std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
+  std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans_config =
+      std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
   while (true) {
-    int obj_number = 0;
-    for (auto a : *sms) {
-      if (a->isConnected()) {
+    for (auto it = sockmans->begin(); it != sockmans->end(); /**/) {
+      if (static_cast<int>((*it)->getMode()) == static_cast<int>(ConnectionMode::DATA)) {
+        mysepoll.unsetReadFunc((*it)->getSock());
+        sockmans_data->push_back(*it);
+        it = sockmans->erase(it);
+      } else if (static_cast<int>((*it)->getMode()) == static_cast<int>(ConnectionMode::CONFIG)) {
+        sockmans_config->push_back(*it);
+        it = sockmans->erase(it);
+      } else {
+        it++;
       }
-      obj_number++;
+    }
+
+    if (sockmans->size() == 0) {
+      break;
     }
 
     std::this_thread::sleep_for(std::chrono::seconds(1));
   }
   // ~wait all obj set
 
-  (void)argc;
-  (void)argv;
-
-  auto sensor_data = ap_client_data();
-  std::cout << sensor_data.dump(4) << std::endl;
+  // send session data
+  while (true) {
+    auto sensor_data = ap_client_data();
+    std::cout << sensor_data.dump(4) << std::endl;
+    for (auto a : *sockmans_data) {
+      a->pushSessionData(sensor_data);
+      mysepoll.setWriteFunc(
+          a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
+          EPOLLOUT | EPOLLONESHOT);
+    }
+  }
+  // ~send session data
+#endif
 }
 
 /// sensor_data output example

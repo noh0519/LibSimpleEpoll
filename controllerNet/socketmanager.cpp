@@ -6,27 +6,35 @@
 
 SocketManager::SocketManager(const char *sharedkey) { _sharedkey = sharedkey; }
 
+SocketManager::~SocketManager() {}
+
 bool SocketManager::isConnected() { return false; }
 
 int SocketManager::getSock() { return _sock; };
 
 void SocketManager::setSock(int sock) { _sock = sock; }
 
+ConnectionState SocketManager::getState() { return _state; };
+
 void SocketManager::setState(ConnectionState state) { _state = state; }
 
-void SocketManager::loginReadFunc(int fd, short what) {
-  Packet p;
-  recvData(p);
+ConnectionMode SocketManager::getMode() { return _mode; };
 
-  auto decrypted = Packet::decrypt(p, _sharedkey);
-  if (!decrypted) {
+void SocketManager::loginReadFunc(int fd, short what) {
+  if (what & EPOLLIN) {
+    printf("EPOLLIN Start (%d)\n", _sock);
+    Packet p;
+    recvData(p);
+
+    auto decrypted = Packet::decrypt(p, _sharedkey);
+    if (!decrypted) {
 #ifdef TMI
-    fmt::print("Err decrypt\n");
+      fmt::print("Err decrypt\n");
 #endif
-    printf("Err decrypt\n");
-    _state = ConnectionState::INIT;
-    return;
-  }
+      printf("Err decrypt\n");
+      _state = ConnectionState::INIT;
+      return;
+    }
 
 #if 0
   if (!Packet::verifySeqence(*decrypted, se->recv_seq_)) {
@@ -35,80 +43,92 @@ void SocketManager::loginReadFunc(int fd, short what) {
   }
 #endif
 
-  if (!Packet::verifyPacketHeaderLength(*decrypted)) {
+    if (!Packet::verifyPacketHeaderLength(*decrypted)) {
 #ifdef TMI
-    fmt::print("Err verifyPacketHeaderLength\n");
+      fmt::print("Err verifyPacketHeaderLength\n");
 #endif
-    printf("Err verifyPacketHeaderLength\n");
-    _state = ConnectionState::INIT;
-    return;
-  }
-
-  if (_state == ConnectionState::VERIFY_MAC) {
-    auto nonce = (*decrypted).getNonce();
-    if (nonce) {
-      calcControllerAuthCode(*nonce);
-    } else {
-#ifdef TMI
-      fmt::print("No Nonce\n");
-#endif
+      printf("Err verifyPacketHeaderLength\n");
       _state = ConnectionState::INIT;
       return;
     }
-    sendLoginChallenge();
-    _state = ConnectionState::LOGIN_REQUEST_CHALLENGE;
-  } else if (_state == ConnectionState::LOGIN_REQUEST_CHALLENGE) {
-    auto auth_code = (*decrypted).getAuthCode();
-    if (!auth_code.empty()) {
-      if (!memcmp(_s_auth, auth_code.data(), sizeof(_s_auth))) {
-        _state = ConnectionState::LOGIN_SUCCESS;
-        sendLoginSuccess();
-        // fmt::print("Login Success\n");
-        printf("Login Success (%d)\n", _sock);
+
+    if (_state == ConnectionState::VERIFY_MAC) {
+      auto nonce = (*decrypted).getNonce();
+      if (nonce) {
+        calcControllerAuthCode(*nonce);
       } else {
 #ifdef TMI
-        fmt::print("Failed verify auth code\n");
+        fmt::print("No Nonce\n");
+#endif
+        _state = ConnectionState::INIT;
+        return;
+      }
+      sendLoginChallenge();
+      _state = ConnectionState::LOGIN_REQUEST_CHALLENGE;
+    } else if (_state == ConnectionState::LOGIN_REQUEST_CHALLENGE) {
+      auto auth_code = (*decrypted).getAuthCode();
+      if (!auth_code.empty()) {
+        if (!memcmp(_s_auth, auth_code.data(), sizeof(_s_auth))) {
+          _state = ConnectionState::LOGIN_SUCCESS;
+          sendLoginSuccess();
+          // fmt::print("Login Success\n");
+          printf("Login Success (%d)\n", _sock);
+        } else {
+#ifdef TMI
+          fmt::print("Failed verify auth code\n");
+#endif
+          (*decrypted).print();
+        }
+      } else {
+#ifdef TMI
+        fmt::print("No auth code\n");
 #endif
         (*decrypted).print();
+        _state = ConnectionState::INIT;
+        return;
       }
-    } else {
+    } else if (_state == ConnectionState::LOGIN_SUCCESS) {
+      auto sensor_id = (*decrypted).getSensorID();
+      if (sensor_id) {
+        // fmt::print("get sensor_id: {}\n", *sensor_id);
+        printf("get sensor_id: %d (%d)\n", *sensor_id, _sock);
+        _sensor_id = *sensor_id;
+        _state = ConnectionState::SET_SENSOR_ID;
+      } else {
 #ifdef TMI
-      fmt::print("No auth code\n");
+        fmt::print("NO sensor_id\n");
 #endif
-      (*decrypted).print();
-      _state = ConnectionState::INIT;
-      return;
+        (*decrypted).print();
+        _state = ConnectionState::INIT;
+        return;
+      }
+    } else if (_state == ConnectionState::SET_SENSOR_ID) {
+      _mode = *(*decrypted).getMode();
+      // fmt::print("bev_: {:p} - get mode: {}\n", fmt::ptr(se->bev_), _mode);
+      printf("get mode : %d (%d)\n", _mode, _sock);
+      if (_mode == ConnectionMode::DATA) {
+        // TODO: Need Set Event (Data Mode)
+        _state = ConnectionState::REQUEST_DATA;
+      } else if (_mode == ConnectionMode::CONFIG) {
+        // TODO: Need Set Event (Config Mode)
+        _state = ConnectionState::SET_CONFIG;
+      }
     }
-  } else if (_state == ConnectionState::LOGIN_SUCCESS) {
-    auto sensor_id = (*decrypted).getSensorID();
-    if (sensor_id) {
-      // fmt::print("get sensor_id: {}\n", *sensor_id);
-      printf("get sensor_id: %d (%d)\n", *sensor_id, _sock);
-      _sensor_id = *sensor_id;
-      _state = ConnectionState::SET_SENSOR_ID;
-    } else {
-#ifdef TMI
-      fmt::print("NO sensor_id\n");
-#endif
-      (*decrypted).print();
-      _state = ConnectionState::INIT;
-      return;
-    }
-  } else if (_state == ConnectionState::SET_SENSOR_ID) {
-    _mode = *(*decrypted).getMode();
-    // fmt::print("bev_: {:p} - get mode: {}\n", fmt::ptr(se->bev_), _mode);
-    printf("get mode : %d (%d)\n", _mode, _sock);
-    if (_mode == ConnectionMode::DATA) {
-      // TODO: Need Set Event (Data Mode)
-      _state = ConnectionState::REQUEST_DATA;
-    } else if (_mode == ConnectionMode::CONFIG) {
-      // TODO: Need Set Event (Config Mode)
-      _state = ConnectionState::SET_CONFIG;
-    }
+    printf("EPOLLIN end (%d)\n", _sock);
   }
 }
 
 void SocketManager::loginWriteFunc(int fd, short what) {}
+
+void SocketManager::dataWriteFunc(int fd, short what) {
+  if (what | EPOLLOUT) {
+    printf("sessios data size : %lu\n", _sessions.size());
+  }
+}
+
+void SocketManager::pushSessionData(nlohmann::json sessions) { //
+  _sessions.push_back(sessions);
+}
 
 uint32_t SocketManager::getHeaderLength(std::vector<uint8_t> vec) {
   Header *h = reinterpret_cast<Header *>(&vec[0]);

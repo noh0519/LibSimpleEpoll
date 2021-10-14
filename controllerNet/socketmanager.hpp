@@ -2,9 +2,13 @@
 #define _SOCKETMANAGER_HPP_
 
 #include "md5.hpp"
-#include "packet.hpp"
 #include "optional.hpp"
+#include "packet.hpp"
+#include <list>
+#include <nlohmann/json.hpp>
 #include <string>
+#include <sys/epoll.h>
+#include <thread>
 #include <vector>
 
 class SocketManager {
@@ -22,18 +26,27 @@ private:
   uint8_t _s_auth[16] = {0};
   uint8_t _c_auth[16] = {0};
 
+  std::list<nlohmann::json> _sessions;
+
 public:
   SocketManager(const char *sharedkey);
+  ~SocketManager();
 
   bool isConnected();
 
   int getSock();
   void setSock(int sock);
 
+  ConnectionState getState();
   void setState(ConnectionState state);
+
+  ConnectionMode getMode();
 
   void loginReadFunc(int fd, short what);
   void loginWriteFunc(int fd, short what);
+  void dataWriteFunc(int fd, short what);
+
+  void pushSessionData(nlohmann::json sessions);
 
 private:
   uint32_t getHeaderLength(std::vector<uint8_t> vec);
