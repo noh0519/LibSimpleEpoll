@@ -1,4 +1,5 @@
 #include "socketmanager.hpp"
+#include "mac_util.hpp"
 #include "sys/socket.h"
 #include <netinet/in.h>
 #include <stdio.h>
@@ -123,6 +124,11 @@ void SocketManager::loginWriteFunc(int fd, short what) {}
 void SocketManager::dataWriteFunc(int fd, short what) {
   if (what | EPOLLOUT) {
     printf("sessios data size : %lu\n", _sessions.size());
+    while (!_sessions.empty()) {
+      auto session = _sessions.front();
+      _sessions.pop_front();
+      sendSessionData(session);
+    }
   }
 }
 
@@ -266,5 +272,42 @@ void SocketManager::sendLoginSuccess() {
   auto p = Packet::makeLoginSuccess(_send_seq++, _sharedkey);
   if (p) {
     sendData(*p);
+  }
+}
+
+void SocketManager::sendSessionData(nlohmann::json session) {
+  for (auto a : session) {
+    AP ap;
+    ap.bssid_ = static_cast<uint64_t>(a["band"]) << (8 * 6);
+    ap.bssid_ += mac::string_to_mac(a["bssid"]);
+    // ap.ssid_ = a["ssid"].value();
+    ap.channel_ = static_cast<uint8_t>(a["frame_channel"]);
+    ap.rssi_ = static_cast<int8_t>(a["rssi"]);
+    ap.cipher_ = static_cast<uint8_t>(a["cipher"]);
+    ap.media_ = 1;
+    ap.auth_ = static_cast<uint8_t>(a["auth"]);
+    ap.net_type_ = 1;
+    ap.signature_[32] = {0};
+    ap.ssid_broadcast_ = static_cast<bool>(a["ssid_broadcast"]);
+    ap.mgnt_count_ = 0;
+    ap.ctrl_count_ = 0;
+    ap.data_count_ = 0;
+    ap.wds_peer_ = 0;
+    ap.support_rate_[16] = {0};
+    ap.mcs_ = 0;
+    ap.channel_width_ = static_cast<uint8_t>(a["channel_width"]);
+    ap.support_mimo_ = 0;
+    ap.highest_rate_ = 0;
+    ap.spatial_stream_ = 0;
+    ap.guard_interval_ = 0;
+    ap.wps_ = static_cast<bool>(a["wps"]);
+    ap.pmf_ = static_cast<bool>(a["pmf"]);
+    ap.last_dt_ = 0;
+    ap.probe_dt_ = 0;
+
+    auto p = Packet::makeSessionAP(ap, _sensor_id, _send_seq++, _sharedkey);
+    if (p) {
+      sendData(*p);
+    }
   }
 }

@@ -59,6 +59,7 @@ private:
   void calcSensorAuthCode(const uint32_t &nonce);
   void sendLoginChallenge();
   void sendLoginSuccess();
+  void sendSessionData(nlohmann::json session);
 };
 
 #endif /* _SOCKETMANAGER_HPP_ */

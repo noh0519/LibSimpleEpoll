@@ -1,12 +1,13 @@
 #ifndef _WIPS_STRESS_PACKET_HPP_
 #define _WIPS_STRESS_PACKET_HPP_
 
-#include "optional.hpp"
-#include <string>
-#include <vector>
 #include "ap.hpp"
 #include "client.hpp"
 #include "enums.hpp"
+#include "optional.hpp"
+#include <nlohmann/json.hpp>
+#include <string>
+#include <vector>
 
 class Client;
 
@@ -110,18 +111,19 @@ public:
   void makeHeader(uint16_t send_seq);
 
   static tl::optional<Packet> makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
-                                                          const std::string shared_key);
+                                                         const std::string shared_key);
   static tl::optional<Packet> makeLoginSuccess(const uint16_t &send_seq, const std::string shared_key);
   static tl::optional<Packet> makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                                 const std::string shared_key);
+                                                const std::string shared_key);
   static tl::optional<Packet> makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                              const std::string shared_key);
+                                             const std::string shared_key);
+  static tl::optional<Packet> makeSessionAP(AP ap, const uint32_t &sensor_id, const uint16_t &send_seq, const std::string shared_key);
   static tl::optional<Packet> makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                                     const std::string shared_key);
+                                                    const std::string shared_key);
   static tl::optional<Packet> makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                                  const std::string shared_key);
+                                                 const std::string shared_key);
   static tl::optional<Packet> makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
-                                              const std::string shared_key);
+                                             const std::string shared_key);
 
   void print();
 };

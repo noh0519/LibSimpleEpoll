@@ -122,11 +122,11 @@ static json ap_client_data() {
 int main(int argc, char **argv) {
   (void)argc;
   (void)argv;
-#if 1
+#if 0
   auto sensor_data = ap_client_data();
   std::cout << sensor_data.dump(4) << std::endl;
 #endif
-#if 0
+#if 1
   // set sensor vector
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
   std::shared_ptr<SocketManager> wlancollector_sensor = std::make_shared<SocketManager>("Secui00@!");

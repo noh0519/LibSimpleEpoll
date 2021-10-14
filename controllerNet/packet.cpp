@@ -279,6 +279,18 @@ tl::optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32
   return Packet::encrypt(p, shared_key);
 }
 
+tl::optional<Packet> Packet::makeSessionAP(AP ap, const uint32_t &sensor_id, const uint16_t &send_seq, const std::string shared_key) {
+  Packet p;
+
+  p.makeSensorID(sensor_id);
+  p.makeAPData(ap);
+  p.makeDataResponseBody(DataResponse::DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(send_seq);
+
+  return Packet::encrypt(p, shared_key);
+}
+
 tl::optional<Packet> Packet::makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
                                                    const std::string shared_key) {
   Packet p;
