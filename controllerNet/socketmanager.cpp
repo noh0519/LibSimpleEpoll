@@ -4,8 +4,6 @@
 #include <stdio.h>
 #include <string.h>
 
-using namespace std;
-
 SocketManager::SocketManager(const char *sharedkey) { _sharedkey = sharedkey; }
 
 bool SocketManager::isConnected() { return false; }
@@ -157,7 +155,7 @@ bool SocketManager::verifyPacketHeaderLength(std::vector<uint8_t> vec) {
   }
 }
 
-std::optional<uint32_t> SocketManager::getNonce(std::vector<uint8_t> vec) {
+tl::optional<uint32_t> SocketManager::getNonce(std::vector<uint8_t> vec) {
   uint32_t *nonce;
   int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
   TLV *body = reinterpret_cast<TLV *>(&vec[body_pos]);
@@ -165,7 +163,7 @@ std::optional<uint32_t> SocketManager::getNonce(std::vector<uint8_t> vec) {
 
   if (static_cast<LoginRequest>((*body).type) != LoginRequest::START) {
     // fmt::print("Not body type challenge : {}\n", (*body).type);
-    return nullopt;
+    return tl::nullopt;
   }
   while (true) {
     TLV *tlv = reinterpret_cast<TLV *>(&vec[body_pos + sizeof(*body) + length]);
@@ -174,7 +172,7 @@ std::optional<uint32_t> SocketManager::getNonce(std::vector<uint8_t> vec) {
       int data_pos = body_pos + sizeof(*body) + length + 3;
       nonce = reinterpret_cast<uint32_t *>(&vec[data_pos]);
       auto n = ntohl(*nonce);
-      return make_optional<uint32_t>(n);
+      return tl::make_optional<uint32_t>(n);
     }
 
     length += 3 + ntohs((*tlv).length);
@@ -182,14 +180,14 @@ std::optional<uint32_t> SocketManager::getNonce(std::vector<uint8_t> vec) {
       break;
     }
   }
-  return nullopt;
+  return tl::nullopt;
 }
 
 void SocketManager::calcControllerAuthCode(const uint32_t &nonce) {
-  vector<uint8_t> n;
-  vector<uint8_t> k;
+  std::vector<uint8_t> n;
+  std::vector<uint8_t> k;
 
-  string nonce_str = std::to_string(nonce);
+  std::string nonce_str = std::to_string(nonce);
   n.insert(n.end(), nonce_str.c_str(), nonce_str.c_str() + nonce_str.size());
   k.insert(k.end(), _sharedkey.begin(), _sharedkey.end());
 
@@ -200,10 +198,10 @@ void SocketManager::calcControllerAuthCode(const uint32_t &nonce) {
 }
 
 void SocketManager::calcSensorAuthCode(const uint32_t &nonce) {
-  vector<uint8_t> n;
-  vector<uint8_t> k;
+  std::vector<uint8_t> n;
+  std::vector<uint8_t> k;
 
-  string nonce_str = to_string(nonce);
+  std::string nonce_str = std::to_string(nonce);
   n.insert(n.end(), nonce_str.c_str(), nonce_str.c_str() + nonce_str.size());
   k.insert(k.end(), _sharedkey.begin(), _sharedkey.end());
 

@@ -3,11 +3,9 @@
 
 #include "md5.hpp"
 #include "packet.hpp"
-#include <optional>
+#include "optional.hpp"
 #include <string>
 #include <vector>
-
-using namespace std;
 
 class SocketManager {
 public:
@@ -43,7 +41,7 @@ private:
   void recvData(Packet &p);
   void sendData(Packet &p);
   bool verifyPacketHeaderLength(std::vector<uint8_t> vec);
-  std::optional<uint32_t> getNonce(std::vector<uint8_t> vec);
+  tl::optional<uint32_t> getNonce(std::vector<uint8_t> vec);
   void calcControllerAuthCode(const uint32_t &nonce);
   void calcSensorAuthCode(const uint32_t &nonce);
   void sendLoginChallenge();

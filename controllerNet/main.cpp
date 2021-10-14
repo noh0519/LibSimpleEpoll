@@ -4,7 +4,6 @@
 #include <smartmq.hpp>
 
 using namespace chkchk;
-using namespace std;
 using namespace nlohmann;
 
 template <typename... _String_> //
@@ -44,8 +43,8 @@ static json get_aps() {
       assert("missing key: band + bssid");
       return;
     }
-    auto band = to_string(j["band"].get<uint8_t>());
-    auto bssid = j["bssid"].get<string>();
+    auto band = std::to_string(j["band"].get<uint8_t>());
+    auto bssid = j["bssid"].get<std::string>();
     aps[band][bssid] = j;
   });
   return aps;
@@ -76,7 +75,7 @@ static json get_clients() {
       assert("missing key: client");
       return;
     }
-    auto client = j["client"].get<string>();
+    auto client = j["client"].get<std::string>();
     clients[client] = j;
   });
   return clients;
@@ -90,8 +89,8 @@ static json ap_client_data() {
 
   for (auto &item : ap_client_db.items()) {
     auto &ac = item.value();
-    auto band = to_string(ac["band"].get<uint8_t>());
-    auto bssid = ac["bssid"].get<string>();
+    auto band = std::to_string(ac["band"].get<uint8_t>());
+    auto bssid = ac["bssid"].get<std::string>();
     auto &clients = ac["clients"];
 
     auto ap_info = ap_db[band].value(bssid, json());
@@ -166,7 +165,7 @@ int main(int argc, char **argv) {
   (void)argv;
 
   auto sensor_data = ap_client_data();
-  cout << sensor_data.dump(4) << endl;
+  std::cout << sensor_data.dump(4) << std::endl;
 }
 
 /// sensor_data output example

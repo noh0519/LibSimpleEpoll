@@ -9,8 +9,6 @@
 #include "md5.hpp"
 #include "sha256.hpp"
 
-using namespace std;
-
 Packet::Packet(){};
 
 Packet::~Packet(){};
@@ -41,8 +39,8 @@ Messages Packet::getBodyHeaderType() {
   return (*b).type;
 }
 
-vector<uint8_t> Packet::getAuthCode() {
-  vector<uint8_t> auth_code;
+std::vector<uint8_t> Packet::getAuthCode() {
+  std::vector<uint8_t> auth_code;
   int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
   TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
   uint16_t length = 0;
@@ -68,7 +66,7 @@ vector<uint8_t> Packet::getAuthCode() {
   return auth_code;
 }
 
-optional<uint32_t> Packet::getNonce() {
+tl::optional<uint32_t> Packet::getNonce() {
   uint32_t *nonce;
   int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
   TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
@@ -76,7 +74,7 @@ optional<uint32_t> Packet::getNonce() {
 
   if (static_cast<LoginRequest>((*body).type) != LoginRequest::START) {
     // fmt::print("Not body type challenge : {}\n", (*body).type);
-    return nullopt;
+    return tl::nullopt;
   }
   while (true) {
     TLV *tlv = reinterpret_cast<TLV *>(&d_[body_pos + sizeof(*body) + length]);
@@ -85,7 +83,7 @@ optional<uint32_t> Packet::getNonce() {
       int data_pos = body_pos + sizeof(*body) + length + 3;
       nonce = reinterpret_cast<uint32_t *>(&d_[data_pos]);
       auto n = ntohl(*nonce);
-      return make_optional<uint32_t>(n);
+      return tl::make_optional<uint32_t>(n);
     }
 
     length += 3 + ntohs((*tlv).length);
@@ -93,10 +91,10 @@ optional<uint32_t> Packet::getNonce() {
       break;
     }
   }
-  return nullopt;
+  return tl::nullopt;
 }
 
-optional<uint32_t> Packet::getSensorID() {
+tl::optional<uint32_t> Packet::getSensorID() {
   uint32_t *sensor_id;
   int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
   TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
@@ -104,7 +102,7 @@ optional<uint32_t> Packet::getSensorID() {
 
   if (static_cast<SetConfig>((*body).type) != SetConfig::SENSOR_ID) {
     // fmt::print("Not body type set_sensor_id : {}\n", (*body).type);
-    return nullopt;
+    return tl::nullopt;
   }
   while (true) {
     TLV *tlv = reinterpret_cast<TLV *>(&d_[body_pos + sizeof(*body) + length]);
@@ -113,7 +111,7 @@ optional<uint32_t> Packet::getSensorID() {
       int data_pos = body_pos + sizeof(*body) + length + 3;
       sensor_id = reinterpret_cast<uint32_t *>(&d_[data_pos]);
       auto s = ntohl(*sensor_id);
-      return make_optional<uint32_t>(s);
+      return tl::make_optional<uint32_t>(s);
     }
 
     length += 3 + ntohs((*tlv).length);
@@ -121,31 +119,31 @@ optional<uint32_t> Packet::getSensorID() {
       break;
     }
   }
-  return nullopt;
+  return tl::nullopt;
 }
 
-optional<ConnectionMode> Packet::getMode() {
+tl::optional<ConnectionMode> Packet::getMode() {
   if (getBodyHeaderType() == Messages::C2S_DATA_REQUEST)
-    return make_optional(ConnectionMode::DATA);
+    return tl::make_optional(ConnectionMode::DATA);
   if (getBodyHeaderType() == Messages::C2S_SET_CONFIG)
-    return make_optional(ConnectionMode::CONFIG);
-  return nullopt;
+    return tl::make_optional(ConnectionMode::CONFIG);
+  return tl::nullopt;
 }
 
 size_t Packet::size() { return d_.size(); }
 uint8_t *Packet::data() { return d_.data(); }
 
-optional<Packet> Packet::encrypt(Packet &p, const string &shared_key) {
+tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
   Packet enc_packet;
   enc_packet.insert(p.data(), p.size());
-  return make_optional(enc_packet);
+  return tl::make_optional(enc_packet);
 }
 
-optional<Packet> Packet::decrypt(Packet &p, const string &shared_key) {
+tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
   Packet decrypt_packet;
   decrypt_packet.insert(p.data(), p.size());
 
-  return std::make_optional(decrypt_packet);
+  return tl::make_optional(decrypt_packet);
 }
 
 bool Packet::verifySeqence(Packet &p, uint16_t &prev_seq) {
@@ -191,7 +189,7 @@ bool Packet::verifyPacketBodyHeaderLength(Packet p) {
 
 bool Packet::verifyAuth(Packet p) {
   // vector<uint8_t> auth_code = p.getAuthCode();
-  // optional<uint32_t> nonce  = p.getNonce();
+  // tl::optional<uint32_t> nonce  = p.getNonce();
   // if (nonce) {
   // }
   //
@@ -216,7 +214,7 @@ void Packet::makeSensorMAC(const uint64_t &mac) {
   d_.insert(d_.end(), s_mac.begin(), s_mac.end());
 }
 
-void Packet::makeSensorIP(const string &ip) {
+void Packet::makeSensorIP(const std::string &ip) {
   auto length = htons(static_cast<uint16_t>(ip.size()));
 
   d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::IP_ADDRESS));
@@ -224,7 +222,7 @@ void Packet::makeSensorIP(const string &ip) {
   d_.insert(d_.end(), ip.begin(), ip.end());
 }
 
-void Packet::makeSensorVersion(const string &ver) {
+void Packet::makeSensorVersion(const std::string &ver) {
   auto length = htons(static_cast<uint16_t>(ver.size()));
 
   d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_VERSION));
@@ -249,7 +247,7 @@ void Packet::makeSensorModel(const uint8_t &model) {
   d_.insert(d_.end(), model);
 }
 
-optional<Packet> Packet::makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
+tl::optional<Packet> Packet::makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
                                            const std::string shared_key) {
   Packet p;
 
@@ -265,7 +263,7 @@ optional<Packet> Packet::makeSessionAPData(const int &index, const uint32_t &sen
   return Packet::encrypt(p, shared_key);
 }
 
-optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
+tl::optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
                                         const std::string shared_key) {
   Packet p;
 
@@ -280,7 +278,7 @@ optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32_t &
   return Packet::encrypt(p, shared_key);
 }
 
-optional<Packet> Packet::makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
+tl::optional<Packet> Packet::makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
                                                const std::string shared_key) {
   Packet p;
 
@@ -296,7 +294,7 @@ optional<Packet> Packet::makeSessionClientData(const int &index, const uint32_t 
   return Packet::encrypt(p, shared_key);
 }
 
-optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
+tl::optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
                                             const std::string shared_key) {
   Packet p;
 
@@ -311,7 +309,7 @@ optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, cons
   return Packet::encrypt(p, shared_key);
 }
 
-optional<Packet> Packet::makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
+tl::optional<Packet> Packet::makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
                                         const std::string shared_key) {
   Packet p;
 
@@ -332,76 +330,76 @@ optional<Packet> Packet::makeSensorInfo(const uint32_t &sensor_id, const SensorI
 void Packet::makeAPData(const AP &ap) {
   Packet p;
 
-  vector<uint8_t> band_bssid = ap.getAPDataBSSID();
+  std::vector<uint8_t> band_bssid = ap.getAPDataBSSID();
   p.makeAPDataTLV(APData::BSSID, band_bssid.size(), band_bssid.data());
 
-  vector<uint8_t> ssid = ap.getAPDataSSID();
+  std::vector<uint8_t> ssid = ap.getAPDataSSID();
   p.makeAPDataTLV(APData::SSID, ssid.size(), ssid.data());
 
-  vector<uint8_t> channel = ap.getAPDataChannel();
+  std::vector<uint8_t> channel = ap.getAPDataChannel();
   p.makeAPDataTLV(APData::CHANNEL, channel.size(), channel.data());
 
-  vector<uint8_t> rssi = ap.getAPDataRSSI();
+  std::vector<uint8_t> rssi = ap.getAPDataRSSI();
   p.makeAPDataTLV(APData::RSSI, rssi.size(), rssi.data());
 
-  vector<uint8_t> cipher = ap.getAPDataCipher();
+  std::vector<uint8_t> cipher = ap.getAPDataCipher();
   p.makeAPDataTLV(APData::CIPHER, cipher.size(), cipher.data());
 
-  vector<uint8_t> protocol = ap.getAPDataProtocol();
+  std::vector<uint8_t> protocol = ap.getAPDataProtocol();
   p.makeAPDataTLV(APData::PROTOCOL, protocol.size(), protocol.data());
 
-  vector<uint8_t> auth = ap.getAPDataAuth();
+  std::vector<uint8_t> auth = ap.getAPDataAuth();
   p.makeAPDataTLV(APData::AUTH, auth.size(), auth.data());
 
-  vector<uint8_t> mode = ap.getAPDataMode();
+  std::vector<uint8_t> mode = ap.getAPDataMode();
   p.makeAPDataTLV(APData::MODE, mode.size(), mode.data());
 
-  vector<uint8_t> signature = ap.getAPDataSignature();
+  std::vector<uint8_t> signature = ap.getAPDataSignature();
   p.makeAPDataTLV(APData::SIGNATURE, signature.size(), signature.data());
 
-  vector<uint8_t> ssid_b = ap.getAPDataSSIDBroadcast();
+  std::vector<uint8_t> ssid_b = ap.getAPDataSSIDBroadcast();
   p.makeAPDataTLV(APData::SSID_BROADCAST, ssid_b.size(), ssid_b.data());
 
-  vector<uint8_t> m_cnt = ap.getAPDataMgntCnt();
+  std::vector<uint8_t> m_cnt = ap.getAPDataMgntCnt();
   p.makeAPDataTLV(APData::MNGFRM_CNT, m_cnt.size(), m_cnt.data());
 
-  vector<uint8_t> c_cnt = ap.getAPDataCtrlCnt();
+  std::vector<uint8_t> c_cnt = ap.getAPDataCtrlCnt();
   p.makeAPDataTLV(APData::CTRLFRM_CNT, c_cnt.size(), c_cnt.data());
 
-  vector<uint8_t> wds_peer = ap.getAPDataWDSPeer();
+  std::vector<uint8_t> wds_peer = ap.getAPDataWDSPeer();
   p.makeAPDataTLV(APData::WDS_AP, wds_peer.size(), wds_peer.data());
 
-  vector<uint8_t> data_rate = ap.getAPDataDataRate();
+  std::vector<uint8_t> data_rate = ap.getAPDataDataRate();
   p.makeAPDataTLV(APData::DATA_RATE, data_rate.size(), data_rate.data());
 
-  vector<uint8_t> mcs = ap.getAPDataMCS();
+  std::vector<uint8_t> mcs = ap.getAPDataMCS();
   p.makeAPDataTLV(APData::MCS, mcs.size(), mcs.data());
 
-  vector<uint8_t> channel_width = ap.getAPDataChannelWidth();
+  std::vector<uint8_t> channel_width = ap.getAPDataChannelWidth();
   p.makeAPDataTLV(APData::CHANNEL_WIDTH, channel_width.size(), channel_width.data());
 
-  vector<uint8_t> mimo = ap.getAPDataMimo();
+  std::vector<uint8_t> mimo = ap.getAPDataMimo();
   p.makeAPDataTLV(APData::MIMO, mimo.size(), mimo.data());
 
-  vector<uint8_t> highest_rate = ap.getAPDataHighestRate();
+  std::vector<uint8_t> highest_rate = ap.getAPDataHighestRate();
   p.makeAPDataTLV(APData::HIGHEST_RATE, highest_rate.size(), highest_rate.data());
 
-  vector<uint8_t> ss = ap.getAPDataSpatialStream();
+  std::vector<uint8_t> ss = ap.getAPDataSpatialStream();
   p.makeAPDataTLV(APData::SPATIAL_STREAM, ss.size(), ss.data());
 
-  vector<uint8_t> gi = ap.getAPDataGuardInterval();
+  std::vector<uint8_t> gi = ap.getAPDataGuardInterval();
   p.makeAPDataTLV(APData::GUARD_INTERVAL, gi.size(), gi.data());
 
-  vector<uint8_t> wps = ap.getAPDataWPS();
+  std::vector<uint8_t> wps = ap.getAPDataWPS();
   p.makeAPDataTLV(APData::WPS, wps.size(), wps.data());
 
-  vector<uint8_t> pmf = ap.getAPDataPMF();
+  std::vector<uint8_t> pmf = ap.getAPDataPMF();
   p.makeAPDataTLV(APData::PMF, pmf.size(), pmf.data());
 
-  vector<uint8_t> last_dt = ap.getAPDataLastDT();
+  std::vector<uint8_t> last_dt = ap.getAPDataLastDT();
   p.makeAPDataTLV(APData::LAST_DT, last_dt.size(), last_dt.data());
 
-  vector<uint8_t> probe_dt = ap.getAPDataProbeDT();
+  std::vector<uint8_t> probe_dt = ap.getAPDataProbeDT();
   p.makeAPDataTLV(APData::PROBE_DT, probe_dt.size(), probe_dt.data());
 
   uint16_t length = htons((uint16_t)p.d_.size());
@@ -413,52 +411,52 @@ void Packet::makeAPData(const AP &ap) {
 void Packet::makeClientData(const Client &client) {
   Packet p;
 
-  vector<uint8_t> band_bssid = client.getClientDataBSSID();
+  std::vector<uint8_t> band_bssid = client.getClientDataBSSID();
   p.makeClientDataTLV(ClientData::BSSID, band_bssid.size(), band_bssid.data());
 
-  vector<uint8_t> client_mac = client.getClientDataClientMAC();
+  std::vector<uint8_t> client_mac = client.getClientDataClientMAC();
   p.makeClientDataTLV(ClientData::CLIENT_MAC, client_mac.size(), client_mac.data());
 
-  vector<uint8_t> eap_id = client.getClientDataEAPID();
+  std::vector<uint8_t> eap_id = client.getClientDataEAPID();
   p.makeClientDataTLV(ClientData::EAP_ID, eap_id.size(), eap_id.data());
 
-  vector<uint8_t> data_rate = client.getClientDataDataRate();
+  std::vector<uint8_t> data_rate = client.getClientDataDataRate();
   p.makeClientDataTLV(ClientData::DATA_RATE, data_rate.size(), data_rate.data());
 
-  vector<uint8_t> noise = client.getClientDataNoise();
+  std::vector<uint8_t> noise = client.getClientDataNoise();
   p.makeClientDataTLV(ClientData::SN, noise.size(), noise.data());
 
-  vector<uint8_t> rssi = client.getClientDataRSSI();
+  std::vector<uint8_t> rssi = client.getClientDataRSSI();
   p.makeClientDataTLV(ClientData::RSSI, rssi.size(), rssi.data());
 
-  vector<uint8_t> mimo = client.getClientDataMimo();
+  std::vector<uint8_t> mimo = client.getClientDataMimo();
   p.makeClientDataTLV(ClientData::MIMO, mimo.size(), mimo.data());
 
-  vector<uint8_t> sig = client.getClientDataSignature();
+  std::vector<uint8_t> sig = client.getClientDataSignature();
   p.makeClientDataTLV(ClientData::SIGNATURE, sig.size(), sig.data());
 
-  vector<uint8_t> sig5 = client.getClientDataSignature5();
+  std::vector<uint8_t> sig5 = client.getClientDataSignature5();
   p.makeClientDataTLV(ClientData::SIGNATURE_5, sig5.size(), sig5.data());
 
-  vector<uint8_t> data_size = client.getClientDataDataSize();
+  std::vector<uint8_t> data_size = client.getClientDataDataSize();
   p.makeClientDataTLV(ClientData::DATA_SIZE, data_size.size(), data_size.data());
 
-  vector<uint8_t> m_cnt = client.getClientDataMgntCnt();
+  std::vector<uint8_t> m_cnt = client.getClientDataMgntCnt();
   p.makeClientDataTLV(ClientData::MNGFRM_CNT, m_cnt.size(), m_cnt.data());
 
-  vector<uint8_t> c_cnt = client.getClientDataCtrlCnt();
+  std::vector<uint8_t> c_cnt = client.getClientDataCtrlCnt();
   p.makeClientDataTLV(ClientData::CTRLFRM_CNT, c_cnt.size(), c_cnt.data());
 
-  vector<uint8_t> d_cnt = client.getClientDataDataCnt();
+  std::vector<uint8_t> d_cnt = client.getClientDataDataCnt();
   p.makeClientDataTLV(ClientData::DATAFRM_CNT, d_cnt.size(), d_cnt.data());
 
-  vector<uint8_t> a_cnt = client.getClientDataAuthCnt();
+  std::vector<uint8_t> a_cnt = client.getClientDataAuthCnt();
   p.makeClientDataTLV(ClientData::AUTH_COUNT, a_cnt.size(), a_cnt.data());
 
-  vector<uint8_t> last_dt = client.getClientDataLastDT();
+  std::vector<uint8_t> last_dt = client.getClientDataLastDT();
   p.makeClientDataTLV(ClientData::LAST_DT, last_dt.size(), last_dt.data());
 
-  vector<uint8_t> probe_dt = client.getClientDataProbeDT();
+  std::vector<uint8_t> probe_dt = client.getClientDataProbeDT();
   p.makeClientDataTLV(ClientData::PROBE_DT, probe_dt.size(), probe_dt.data());
 
   uint16_t length = htons((uint16_t)p.d_.size());
@@ -560,7 +558,7 @@ void Packet::makeHeader(uint16_t send_seq) {
   d_.insert(d_.begin(), reinterpret_cast<uint8_t *>(&h), reinterpret_cast<uint8_t *>(&h) + sizeof(h));
 }
 
-optional<Packet> Packet::makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
+tl::optional<Packet> Packet::makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
                                                     const std::string shared_key) {
   Packet p;
 
@@ -574,7 +572,7 @@ optional<Packet> Packet::makeLoginResponseChallenge(const uint8_t *auth_code, co
   return Packet::encrypt(p, shared_key);
 }
 
-optional<Packet> Packet::makeLoginSuccess(const uint16_t &send_seq, const std::string shared_key) {
+tl::optional<Packet> Packet::makeLoginSuccess(const uint16_t &send_seq, const std::string shared_key) {
   Packet p;
 
   p.makeLoginResponseBody(LoginResponse::OK);

@@ -1,15 +1,12 @@
 #ifndef _WIPS_STRESS_PACKET_HPP_
 #define _WIPS_STRESS_PACKET_HPP_
 
-#include <optional>
+#include "optional.hpp"
 #include <string>
 #include <vector>
-
 #include "ap.hpp"
 #include "client.hpp"
 #include "enums.hpp"
-
-using namespace std;
 
 class Client;
 
@@ -79,12 +76,12 @@ public:
 
   uint16_t getHeaderLength();
   std::vector<uint8_t> getAuthCode();
-  std::optional<uint32_t> getNonce();
-  std::optional<uint32_t> getSensorID();
-  std::optional<ConnectionMode> getMode();
+  tl::optional<uint32_t> getNonce();
+  tl::optional<uint32_t> getSensorID();
+  tl::optional<ConnectionMode> getMode();
 
-  static std::optional<Packet> encrypt(Packet &p, const std::string &shared_key);
-  static std::optional<Packet> decrypt(Packet &p, const std::string &shared_key);
+  static tl::optional<Packet> encrypt(Packet &p, const std::string &shared_key);
+  static tl::optional<Packet> decrypt(Packet &p, const std::string &shared_key);
 
   static bool verifySeqence(Packet &p, uint16_t &prev_seq);
   static bool verifyPacketHeaderLength(Packet p);
@@ -112,18 +109,18 @@ public:
   void makeDataResponseBodyHeader();
   void makeHeader(uint16_t send_seq);
 
-  static std::optional<Packet> makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
+  static tl::optional<Packet> makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
                                                           const std::string shared_key);
-  static std::optional<Packet> makeLoginSuccess(const uint16_t &send_seq, const std::string shared_key);
-  static std::optional<Packet> makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
+  static tl::optional<Packet> makeLoginSuccess(const uint16_t &send_seq, const std::string shared_key);
+  static tl::optional<Packet> makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
                                                  const std::string shared_key);
-  static std::optional<Packet> makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
+  static tl::optional<Packet> makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
                                               const std::string shared_key);
-  static std::optional<Packet> makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
+  static tl::optional<Packet> makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
                                                      const std::string shared_key);
-  static std::optional<Packet> makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
+  static tl::optional<Packet> makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
                                                   const std::string shared_key);
-  static std::optional<Packet> makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
+  static tl::optional<Packet> makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
                                               const std::string shared_key);
 
   void print();

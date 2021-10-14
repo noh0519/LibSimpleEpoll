@@ -14,7 +14,7 @@ FetchContent_Declare(sensordb
 FetchContent_MakeAvailable(smartdb sensordb)
 
 
-add_compile_options(-W -Wall -g -fpermissive -std=c++17)
+add_compile_options(-W -Wall -g -fpermissive -std=c++14)
 
 set(LIBSEPOLL_PATH ../libsepoll/)
 
