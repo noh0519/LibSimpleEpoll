@@ -74,6 +74,9 @@ auto lamFDGetFunc = [](MyFDClass mfc) -> int { return mfc.getFD(); };
 int main(int argc, char **argv) {
   printf("Start Server\n");
   std::shared_ptr<std::vector<std::shared_ptr<MyFDClass>>> mfcs = std::make_shared<std::vector<std::shared_ptr<MyFDClass>>>();
+  std::shared_ptr<MyFDClass> mfc1 = std::make_shared<MyFDClass>();
+  mfcs->push_back(mfc1);
+
   // TODO: set mfcs element
 
   SEpoll<MyFDClass> mysepoll(lamFDSetFunc, lamFDGetFunc, mfcs);
