@@ -1,6 +1,6 @@
 add_compile_options(-g -Wall -std=c++17)
 
-set(LIBSEPOLL_PATH ../libsepoll/)
+set(LIBSEPOLL_PATH ../../libsepoll/)
 
 add_executable(server main.cpp)
 
