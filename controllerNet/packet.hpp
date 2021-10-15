@@ -122,6 +122,8 @@ public:
                                                     const std::string shared_key);
   static tl::optional<Packet> makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
                                                  const std::string shared_key);
+  static tl::optional<Packet> makeSessionClient(Client client, const uint32_t &sensor_id, const uint16_t &send_seq,
+                                                const std::string shared_key);
   static tl::optional<Packet> makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
                                              const std::string shared_key);
 

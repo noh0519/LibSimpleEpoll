@@ -188,6 +188,10 @@ int main(int argc, char **argv) {
   while (true) {
     auto sensor_data = ap_client_data();
     // std::cout << sensor_data.dump(4) << std::endl;
+    if (sensor_data.is_null()) {
+      printf("sensor db empty\n");
+      continue;
+    }
     for (auto a : *sockmans_data) {
       a->pushSessionData(sensor_data);
       mysepoll.setWriteFunc(

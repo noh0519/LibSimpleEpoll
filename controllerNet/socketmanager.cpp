@@ -277,6 +277,7 @@ void SocketManager::sendLoginSuccess() {
 
 void SocketManager::sendSessionData(nlohmann::json session) {
   for (auto a : session) {
+    // send ap
     AP ap;
     ap.bssid_ = static_cast<uint64_t>(a.value("band", 0)) << (8 * 6);
     ap.bssid_ += mac::string_to_mac(a.value("bssid", "00:00:00:00:00:00"));
@@ -305,9 +306,42 @@ void SocketManager::sendSessionData(nlohmann::json session) {
     ap.last_dt_ = 0;
     ap.probe_dt_ = 0;
 
-    auto p = Packet::makeSessionAP(ap, _sensor_id, _send_seq++, _sharedkey);
-    if (p) {
-      sendData(*p);
+    auto p_ap = Packet::makeSessionAP(ap, _sensor_id, _send_seq++, _sharedkey);
+    if (p_ap) {
+      sendData(*p_ap);
     }
+    // ~send ap
+
+    // send clients
+    auto j_clients = a.value("clients", nlohmann::json());
+    if (j_clients.is_null()) {
+      continue;
+    }
+    for (auto c : j_clients) {
+      Client client;
+      client.client_mac_ = mac::string_to_mac(c.value("client", "00:00:00:00:00:00"));
+      client.rssi_ = static_cast<int8_t>(c.value("rssi", -90));
+      client.bssid_ = ap.bssid_;
+      client.channel_ = ap.channel_;
+      client.eap_id_[64] = {0};
+      client.data_rate_ = 0;
+      client.noise_ = -90;
+      client.mimo_ = 0;
+      client.signature_[32] = {0};
+      client.signature5_[32] = {0};
+      client.data_size_ = 0;
+      client.mgnt_count_ = 0;
+      client.ctrl_count_ = 0;
+      client.data_count_ = 0;
+      client.auth_count_ = 0;
+      client.last_dt_ = 0;
+      client.probe_dt_ = 0;
+
+      auto p_client = Packet::makeSessionClient(client, _sensor_id, _send_seq++, _sharedkey);
+      if (p_client) {
+        sendData(*p_client);
+      }
+    }
+    // ~send clients
   }
 }

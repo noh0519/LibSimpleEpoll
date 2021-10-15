@@ -322,6 +322,19 @@ tl::optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, 
   return Packet::encrypt(p, shared_key);
 }
 
+tl::optional<Packet> Packet::makeSessionClient(Client client, const uint32_t &sensor_id, const uint16_t &send_seq,
+                                               const std::string shared_key) {
+  Packet p;
+
+  p.makeSensorID(sensor_id);
+  p.makeClientData(client);
+  p.makeDataResponseBody(DataResponse::DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(send_seq);
+
+  return Packet::encrypt(p, shared_key);
+}
+
 tl::optional<Packet> Packet::makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
                                             const std::string shared_key) {
   Packet p;
