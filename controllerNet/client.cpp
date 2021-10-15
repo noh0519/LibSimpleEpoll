@@ -40,8 +40,7 @@ std::vector<uint8_t> Client::getClientDataNoise() const {
 
 std::vector<uint8_t> Client::getClientDataRSSI() const {
   std::vector<uint8_t> rssi;
-  int8_t rrssi = -90;
-  rssi.insert(rssi.end(), &rrssi, &rrssi + sizeof(rrssi));
+  rssi.insert(rssi.end(), &rssi_, &rssi_ + sizeof(rssi_));
   return rssi;
 }
 

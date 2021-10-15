@@ -156,6 +156,7 @@ int main(int argc, char **argv) {
   // ~set SEpoll
 
   // wait all obj set
+  printf("start connection loop\n");
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans_data =
       std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans_config =
@@ -183,9 +184,10 @@ int main(int argc, char **argv) {
   // ~wait all obj set
 
   // send session data
+  printf("start data loop\n");
   while (true) {
     auto sensor_data = ap_client_data();
-    std::cout << sensor_data.dump(4) << std::endl;
+    // std::cout << sensor_data.dump(4) << std::endl;
     for (auto a : *sockmans_data) {
       a->pushSessionData(sensor_data);
       mysepoll.setWriteFunc(
