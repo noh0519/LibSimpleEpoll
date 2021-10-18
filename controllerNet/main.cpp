@@ -1,5 +1,6 @@
 #include "SEpoll.hpp"
 #include "socketmanager.hpp"
+#include <fmt/format.h>
 #include <iostream>
 #include <smartmq.hpp>
 
