@@ -510,12 +510,32 @@ int DecKeySetup(const Byte *mk, Byte *rk, int keyBits) {
   return rValue;
 }
 
-void EncryptCBC(const Byte *mk, int keyBits, const Byte *indata, int indata_len, uint8_t *outdata) {}
+void EncryptCBC(const Byte *mk, uint32_t keyBits, Byte *indata, uint32_t indata_len, uint8_t *outdata) {
+  unsigned char rk[16 * 17] = {0}; // 라운드키
+  int rk_len = EncKeySetup(mk, rk, keyBits);
+  int block_unit = 16;
+  int block_len = indata_len / block_unit + 1;
+  // Insert Padding
+  for (int i = indata_len; i < block_len * block_unit; i++) {
+    indata[i] = block_unit - (indata_len % block_unit);
+  }
+  // ~Insert Padding
+  for (int i = 0; i < block_unit; i++) {
+    indata[i] = indata[i] ^ IV[i];
+  }
+  Crypt(indata, rk_len, rk, outdata);
+  for (int i = 1; i < block_len; i++) {
+    for (int j = 0; j < block_unit; j++) {
+      indata[i * block_unit + j] = indata[i * block_unit + j] ^ outdata[(i - 1) * block_unit + j];
+    }
+    Crypt(indata + (i * block_unit), rk_len, rk, outdata + (i * block_unit));
+  }
+}
 
-void DecryptCBC(const Byte *mk, int keyBits, const Byte *indata, int indata_len, uint8_t *outdata) {
+void DecryptCBC(const Byte *mk, uint32_t keyBits, Byte *indata, uint32_t indata_len, uint8_t *outdata) {
   unsigned char rk[16 * 17] = {0}; // 라운드키
   int rk_len = DecKeySetup(mk, rk, keyBits);
-  rk_len = 12;
+  // rk_len = 12;
   int block_unit = 16;
   int block_len = indata_len / block_unit;
   if ((indata_len % block_unit) > 0) {
@@ -526,22 +546,23 @@ void DecryptCBC(const Byte *mk, int keyBits, const Byte *indata, int indata_len,
     outdata[i] = outdata[i] ^ IV[i];
   }
   for (int i = 1; i < block_len; i++) {
-    Crypt(indata + (i * 16), rk_len, rk, outdata + (i * 16));
+    Crypt(indata + (i * block_unit), rk_len, rk, outdata + (i * block_unit));
     for (int j = 0; j < block_unit; j++) {
-      outdata[i * 16 + j] = outdata[i * 16 + j] ^ indata[(i - 1) * 16 + j];
+      outdata[i * block_unit + j] = outdata[i * block_unit + j] ^ indata[(i - 1) * block_unit + j];
     }
   }
   // Remove Padding
-  // int padding_value = outdata[indata_len - 1];
-  // for (int i = 0; i < padding_value; i++) {
-  //   outdata[indata_len - 1 - i] = 0x00;
-  // }
+  int padding_value = outdata[indata_len - 1];
+  for (int i = 0; i < padding_value; i++) {
+    outdata[indata_len - 1 - i] = 0x00;
+  }
+  // ~Remove Padding
 }
 
 void testEncryptAria() {
-  Byte intext[10 + 1] = "0123456789";
+  Byte intext[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
   Byte outtext[128] = {0};
-  Byte mk[16 + 1] = "a5c59d200b9ae44a";
+  Byte mk[16] = {16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1};
   Byte rk[16 * 17] = {0};
   int rk_len = EncKeySetup(mk, rk, 128);
   printf("rk : ");

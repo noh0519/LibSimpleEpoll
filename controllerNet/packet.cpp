@@ -46,8 +46,7 @@ std::vector<uint8_t> Packet::getAuthCode() {
   uint16_t length = 0;
 
   if (static_cast<LoginRequest>((*body).type) != LoginRequest::CHALLENGE) {
-    // fmt::print("Not body type challenge : {}\n", static_cast<int>((*body).type));
-    printf("Not body type challenge : %d\n", static_cast<int>((*body).type));
+    fmt::print("Not body type challenge : {}\n", static_cast<int>((*body).type));
     return auth_code;
   }
   while (true) {
@@ -167,7 +166,7 @@ tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
   // 암호화키 sha1 변환, 16Byte만 컷
   uint8_t sha1key16[16] = {0};
   SHA1Byte16(secret_key, secret_key_len, sha1key16);
-  Crypt(data, EncKeySetup(sha1key16, rk, 128), rk, enc_data);
+  EncryptCBC(sha1key16, 128, data, enc_data_len, enc_data);
 
   enc_data_len = enc_data_len + (16 - (enc_data_len % 16)); // add padding
 
@@ -202,7 +201,7 @@ tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
   // Packet enc_packet;
   uint8_t data[8196] = {0}; // 암호화할 데이터
   uint8_t dec_data[8196] = {0};
-  int dec_len = p.d_.size() - sizeof(Header);
+  uint32_t dec_len = p.d_.size() - sizeof(Header);
 
   memcpy(data, p.d_.data() + sizeof(Header), p.d_.size() - sizeof(Header));
 
@@ -218,21 +217,21 @@ tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
   /** decrypt */
   uint8_t sha1key16[16] = {0};
   SHA1Byte16(secret_key, secret_key_len, sha1key16);
-#if 1
-  printf("secret_key : %s\n", secret_key);
-  printf("sha1key16 : ");
+#if 0
+  fmt::print("secret_key : {}\n", secret_key);
+  fmt::print("sha1key16 : ");
   for (int i = 0; i < 16; i++) {
-    printf("%02x", sha1key16[i]);
+    fmt::print("{:02x}", sha1key16[i]);
   }
-  printf("\n");
+  fmt::print("\n");
 #endif
   DecryptCBC(sha1key16, 128, data, dec_len, dec_data);
-#if 1
-  printf("dec_data\n");
+#if 0
+  fmt::print("dec_data\n");
   for (int i = 0; i < dec_len; i++) {
-    printf("%02x ", dec_data[i]);
+    fmt::print("{:02x} ", dec_data[i]);
   }
-  printf("\n~dec_data\n");
+  fmt::print("\n~dec_data\n");
 #endif
 
   Bodyheader b;
