@@ -1,4 +1,6 @@
 #include "SEpoll.hpp"
+#include "aria.hpp"
+#include "sha1v2.hpp"
 #include "socketmanager.hpp"
 #include <fmt/format.h>
 #include <iostream>
@@ -127,7 +129,57 @@ int main(int argc, char **argv) {
   auto sensor_data = ap_client_data();
   std::cout << sensor_data.dump(4) << std::endl;
 #endif
+
 #if 1
+  testEncryptAria();
+#endif
+
+#if 0
+  Byte intext[10 + 1] = "0123456789";
+  Byte outtext[128] = {0};
+  Byte mk[16 + 1] = "a5c59d200b9ae44a";
+  Byte rk[16 * 17] = {0};
+  int rk_len = EncKeySetup(mk, rk, 128);
+  printf("rk : ");
+  for (int i = 0; i < 16 * 17; i++) {
+    printf("%02x", rk[i]);
+  }
+  printf("\n");
+  printf("rk_len : %d\n", rk_len);
+  Crypt(intext, rk_len, rk, outtext);
+  printf("encrypt value : ");
+  for (int i = 0; i < 17; i++) {
+    printf("%02x", outtext[i]);
+  }
+  printf("\n");
+  printf("intext : ");
+  for (int i = 0; i < 10; i++) {
+    printf("%02x", intext[i]);
+  }
+  printf("\n");
+  printf("mk : ");
+  for (int i = 0; i < 16; i++) {
+    printf("%02x", mk[i]);
+  }
+  printf("\n");
+#endif
+#if 0
+  uint16_t nonce = 41419;
+  std::string shared_key = "Secui00@!";
+  uint8_t secret_key[128] = {0}; // 암호화 key
+  memcpy(secret_key, shared_key.data(), shared_key.size());
+  memcpy(secret_key + shared_key.size(), &nonce, 2);
+  int32_t secret_key_len = shared_key.size() + 2;
+  uint8_t text_out[20] = {0};
+  printf("plain text : %s\n", secret_key);
+  SHA1Byte16((const unsigned char *)secret_key, secret_key_len, text_out);
+  printf("sha1 text : ");
+  for (int i = 0; i < 16; i++) {
+    printf("%02x", text_out[i]);
+  }
+  printf("\n");
+#endif
+#if 0
   // set sensor vector
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
   std::shared_ptr<SocketManager> wlancollector_sensor = std::make_shared<SocketManager>("Secui00@!");
@@ -202,6 +254,8 @@ int main(int argc, char **argv) {
   }
   // ~send session data
 #endif
+
+  return 0;
 }
 
 /// sensor_data output example

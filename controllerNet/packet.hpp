@@ -5,6 +5,7 @@
 #include "client.hpp"
 #include "enums.hpp"
 #include "optional.hpp"
+#include "sha1.hpp"
 #include <nlohmann/json.hpp>
 #include <string>
 #include <vector>
