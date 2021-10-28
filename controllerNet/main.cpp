@@ -1,7 +1,9 @@
 #include "SEpoll.hpp"
 #include "aria.hpp"
+#include "pol_collector.hpp"
 #include "sha1v2.hpp"
 #include "socketmanager.hpp"
+#include "wlan_provider.hpp"
 #include <fmt/format.h>
 #include <iostream>
 #include <smartmq.hpp>
@@ -137,6 +139,15 @@ int main(int argc, char **argv) {
   std::shared_ptr<SocketManager> sockman2 = std::make_shared<SocketManager>("Secui00@!");
   (*sockmans).push_back(sockman2);
 
+  // start threads
+  std::shared_ptr<WlanProvider> wp = std::make_shared<WlanProvider>();
+  std::thread t_wp(&WlanProvider::run, wp);
+  t_wp.detach();
+  std::shared_ptr<PolCollector> pc = std::make_shared<PolCollector>();
+  std::thread t_pc(&PolCollector::run, pc);
+  t_pc.detach();
+  // ~start threads
+
   // set SEpoll
   auto lamb_setFunc = [](SocketManager &sockman, int sock) -> void {
     if (sock == -1) {
@@ -147,14 +158,15 @@ int main(int argc, char **argv) {
     sockman.setSock(sock);
   };
   auto lamb_getFunc = [](SocketManager sockman) -> int { return sockman.getSock(); };
-  SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sockmans, SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
-  mysepoll.setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginReadFunc(fd, what); },
-                           EPOLLIN);
-  // mysepoll.setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },
+  std::shared_ptr<SEpoll<SocketManager>> mysepoll =
+      std::make_shared<SEpoll<SocketManager>>(lamb_setFunc, lamb_getFunc, sockmans, SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
+  mysepoll->setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginReadFunc(fd, what); },
+                            EPOLLIN);
+  // mysepoll->setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },
   //                           EPOLLOUT);
 
-  std::thread tsepoll(&SEpoll<SocketManager>::run, &mysepoll);
-  tsepoll.detach();
+  std::thread t_sepoll(&SEpoll<SocketManager>::run, mysepoll);
+  t_sepoll.detach();
   // ~set SEpoll
 
   // wait all obj set
@@ -166,7 +178,7 @@ int main(int argc, char **argv) {
   while (true) {
     for (auto it = sockmans->begin(); it != sockmans->end(); /**/) {
       if (static_cast<int>((*it)->getMode()) == static_cast<int>(ConnectionMode::DATA)) {
-        mysepoll.unsetReadFunc((*it)->getSock());
+        mysepoll->unsetReadFunc((*it)->getSock());
         sockmans_data->push_back(*it);
         it = sockmans->erase(it);
       } else if (static_cast<int>((*it)->getMode()) == static_cast<int>(ConnectionMode::CONFIG)) {
@@ -196,7 +208,7 @@ int main(int argc, char **argv) {
     }
     for (auto a : *sockmans_data) {
       a->pushSessionData(sensor_data);
-      mysepoll.setWriteFunc(
+      mysepoll->setWriteFunc(
           a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
           EPOLLOUT | EPOLLONESHOT);
     }

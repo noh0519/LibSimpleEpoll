@@ -25,7 +25,7 @@ add_compile_options(-W -Wall -g -fpermissive -std=c++14)
 
 set(LIBSEPOLL_PATH ../libsepoll/)
 
-add_executable(controller_net main.cpp socketmanager.cpp packet.cpp md5.cpp sha1.cpp sha1v2.cpp sha256.cpp aria.cpp ap.cpp client.cpp)
+add_executable(controller_net main.cpp socketmanager.cpp packet.cpp wlan_provider.cpp pol_collector.cpp md5.cpp sha1.cpp sha1v2.cpp sha256.cpp aria.cpp ap.cpp client.cpp)
 
 target_include_directories(controller_net
 PUBLIC
