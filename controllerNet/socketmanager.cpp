@@ -106,11 +106,6 @@ void SocketManager::pushSessionData(nlohmann::json sessions) { //
   _sessions.push_back(sessions);
 }
 
-uint32_t SocketManager::getHeaderLength(std::vector<uint8_t> vec) {
-  Header *h = reinterpret_cast<Header *>(&vec[0]);
-  return ntohs((*h).length);
-}
-
 tl::optional<Packet> SocketManager::recvData(Packet &p) {
   int ret = 0;
   int flags = 0;
@@ -182,42 +177,6 @@ void SocketManager::sendData(Packet &p) {
   send(_sock, p.data(), p.size(), 0);
   // int ret = send(_sock, p.data(), p.size(), 0);
   // fmt::print("sendData end ({}) ({})\n", ret, _sock);
-}
-
-bool SocketManager::verifyPacketHeaderLength(std::vector<uint8_t> vec) {
-  if (getHeaderLength(vec) == vec.size() - sizeof(Header)) {
-    return true;
-  } else {
-    return false;
-  }
-}
-
-tl::optional<uint32_t> SocketManager::getNonce(std::vector<uint8_t> vec) {
-  uint32_t *nonce;
-  int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
-  TLV *body = reinterpret_cast<TLV *>(&vec[body_pos]);
-  uint16_t length = 0;
-
-  if (static_cast<LoginRequest>((*body).type) != LoginRequest::START) {
-    fmt::print("Not body type challenge : {}\n", (*body).type);
-    return tl::nullopt;
-  }
-  while (true) {
-    TLV *tlv = reinterpret_cast<TLV *>(&vec[body_pos + sizeof(*body) + length]);
-
-    if (static_cast<LoginValue>((*tlv).type) == LoginValue::NONCE) {
-      int data_pos = body_pos + sizeof(*body) + length + 3;
-      nonce = reinterpret_cast<uint32_t *>(&vec[data_pos]);
-      auto n = ntohl(*nonce);
-      return tl::make_optional<uint32_t>(n);
-    }
-
-    length += 3 + ntohs((*tlv).length);
-    if (length >= ntohs((*body).length)) {
-      break;
-    }
-  }
-  return tl::nullopt;
 }
 
 void SocketManager::calcControllerAuthCode(const uint32_t &nonce) {
