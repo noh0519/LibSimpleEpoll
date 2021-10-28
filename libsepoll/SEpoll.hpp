@@ -287,20 +287,6 @@ private:
   }
 
   SEPOLL_RESULT initConnect() {
-    m_sock_fd = socket(PF_INET, SOCK_STREAM, 0);
-    if (m_sock_fd == -1) {
-      printf("socket create fail\n");
-      return SEPOLL_RESULT::FAIL;
-    }
-
-    int optval = 1;
-    setsockopt(m_sock_fd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval));
-
-    memset(&m_sock_addr, 0x00, sizeof(sockaddr_in));
-    m_sock_addr.sin_family = AF_INET;
-    m_sock_addr.sin_port = htons(m_port);
-    m_sock_addr.sin_addr.s_addr = inet_addr(m_ip.c_str());
-
     /* epoll create */
     if ((m_epoll_fd = epoll_create1(0)) == -1) {
       printf("epoll create fail\n");
@@ -372,6 +358,8 @@ private:
   }
 
   void runConnect() {
+    // fds sock connect thread
+    // epoll wait & process
 #if 0
     /* connect */
     if (m_sock_addr == -1) {
