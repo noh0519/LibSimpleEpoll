@@ -82,8 +82,8 @@ public:
   tl::optional<uint32_t> getSensorID();
   tl::optional<ConnectionMode> getMode();
 
-  static tl::optional<Packet> encrypt(Packet &p, const std::string &shared_key);
-  static tl::optional<Packet> decrypt(Packet &p, const std::string &shared_key);
+  void encrypt(const std::string &shared_key);
+  tl::optional<Packet> decrypt(const std::string &shared_key);
 
   static bool verifySeqence(Packet &p, uint16_t &prev_seq);
   static bool verifyPacketHeaderLength(Packet p);

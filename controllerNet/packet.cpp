@@ -133,11 +133,11 @@ tl::optional<ConnectionMode> Packet::getMode() {
 size_t Packet::size() { return d_.size(); }
 uint8_t *Packet::data() { return d_.data(); }
 
-tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
-  Packet enc_packet;            // 암호화가 완료된 패킷
-  uint8_t data[8196] = {0};     // 암호화할 데이터
-  uint8_t enc_data[8196] = {0}; // 암호화된 데이터
-  int32_t enc_data_len = p.getHeaderLength();
+void Packet::encrypt(const std::string &shared_key) {
+  std::vector<uint8_t> enc_packet; // 암호화가 완료된 패킷
+  uint8_t data[8196] = {0};        // 암호화할 데이터
+  uint8_t enc_data[8196] = {0};    // 암호화된 데이터
+  int32_t enc_data_len = getHeaderLength();
   srand(time(nullptr));
   uint16_t nonce = (uint16_t)rand();
   unsigned char rk[16 * 17] = {0}; // 라운드키
@@ -148,7 +148,7 @@ tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
   SHA256 sha256;
   uint8_t digest[SHA256::DIGEST_SIZE] = {0};
 
-  memcpy(data, p.d_.data() + sizeof(Header), enc_data_len);
+  memcpy(data, d_.data() + sizeof(Header), enc_data_len);
 
   /* 데이터 무결성 값을 패킷의 맨 뒤에 붙여준다. */
   sha256.sha256_bin(data, enc_data_len, digest);
@@ -169,6 +169,8 @@ tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
 
   enc_data_len = enc_data_len + (16 - (enc_data_len % 16)); // add padding
 
+  enc_packet.insert(enc_packet.begin(), enc_data, enc_data + enc_data_len);
+
   Flags flags;
   flags.cipher = 1;
   flags.fragment = 0;
@@ -176,7 +178,7 @@ tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
 
   Header h;
   h.version = 0;
-  h.seq = htons(p.getSeq());
+  h.seq = htons(getSeq());
   h.flags = flags;
   h.offset = 0;
   h.nonce = nonce;
@@ -184,21 +186,20 @@ tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
   h.res = 0;
   h.length = htons(enc_data_len);
 
-  enc_packet.insert(reinterpret_cast<uint8_t *>(&h), sizeof(h));
-  enc_packet.insert(enc_data, enc_data_len);
+  enc_packet.insert(enc_packet.begin(), reinterpret_cast<uint8_t *>(&h), reinterpret_cast<uint8_t *>(&h) + sizeof(h));
 
-  return tl::make_optional(enc_packet);
+  d_.swap(enc_packet);
 }
 
-tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
+tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
   // Packet enc_packet;
   uint8_t data[8196] = {0}; // 암호화할 데이터
   uint8_t dec_data[8196] = {0};
-  uint32_t dec_len = p.d_.size() - sizeof(Header);
+  uint32_t dec_len = d_.size() - sizeof(Header);
 
-  memcpy(data, p.d_.data() + sizeof(Header), p.d_.size() - sizeof(Header));
+  memcpy(data, d_.data() + sizeof(Header), d_.size() - sizeof(Header));
 
-  Header *h = reinterpret_cast<Header *>(p.d_.data());
+  Header *h = reinterpret_cast<Header *>(d_.data());
 
   /** make secret_key */
   uint8_t secret_key[128] = {0};
@@ -257,7 +258,7 @@ tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
   h->length = htons(header_length);
 
   Packet decrypt_packet;
-  decrypt_packet.insert(p.d_.data(), sizeof(Header));
+  decrypt_packet.insert(d_.data(), sizeof(Header));
   decrypt_packet.insert(dec_data, ntohs(b.length) + sizeof(Bodyheader));
 
   return tl::make_optional(decrypt_packet);

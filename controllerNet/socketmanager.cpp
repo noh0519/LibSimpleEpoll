@@ -154,7 +154,7 @@ tl::optional<Packet> SocketManager::recvData(Packet &p) {
 
   // fmt::print("end packet receive (%d)\n", _sock);
 
-  auto decrypted = Packet::decrypt(p, _sharedkey);
+  auto decrypted = p.decrypt(_sharedkey);
   if (!decrypted) {
     fmt::print("Err decrypt\n");
     _state = ConnectionState::INIT;
@@ -263,10 +263,9 @@ void SocketManager::sendLoginChallenge() {
   p.makeLoginResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 void SocketManager::sendLoginSuccess() {
@@ -276,10 +275,9 @@ void SocketManager::sendLoginSuccess() {
   p.makeLoginResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 void SocketManager::sendSessionData(nlohmann::json session) {
@@ -311,10 +309,9 @@ void SocketManager::sendSessionAPData(AP ap) {
   p.makeDataResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 void SocketManager::sendSessionAPsData(std::vector<AP> aps) {
@@ -328,10 +325,9 @@ void SocketManager::sendSessionAPsData(std::vector<AP> aps) {
   p.makeDataResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 void SocketManager::sendSessionClientData(Client client) {
@@ -343,10 +339,9 @@ void SocketManager::sendSessionClientData(Client client) {
   p.makeDataResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 void SocketManager::sendSessionClientsData(std::vector<Client> clients) {
@@ -360,10 +355,9 @@ void SocketManager::sendSessionClientsData(std::vector<Client> clients) {
   p.makeDataResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 void SocketManager::sendSensorInfo() {
@@ -380,10 +374,9 @@ void SocketManager::sendSensorInfo() {
   p.makeDataResponseBodyHeader();
   p.makeHeader(_send_seq++);
 
-  auto pp = Packet::encrypt(p, _sharedkey);
-  if (pp) {
-    sendData(*pp);
-  }
+  p.encrypt(_sharedkey);
+
+  sendData(p);
 }
 
 AP SocketManager::getAPFromJson(nlohmann::json j) {
