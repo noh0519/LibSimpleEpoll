@@ -134,7 +134,6 @@ size_t Packet::size() { return d_.size(); }
 uint8_t *Packet::data() { return d_.data(); }
 
 tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
-#if 1
   Packet enc_packet;            // 암호화가 완료된 패킷
   uint8_t data[8196] = {0};     // 암호화할 데이터
   uint8_t enc_data[8196] = {0}; // 암호화된 데이터
@@ -189,15 +188,9 @@ tl::optional<Packet> Packet::encrypt(Packet &p, const std::string &shared_key) {
   enc_packet.insert(enc_data, enc_data_len);
 
   return tl::make_optional(enc_packet);
-#else
-  Packet enc_packet;
-  enc_packet.insert(p.data(), p.size());
-  return tl::make_optional(enc_packet);
-#endif
 }
 
 tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
-#if 1
   // Packet enc_packet;
   uint8_t data[8196] = {0}; // 암호화할 데이터
   uint8_t dec_data[8196] = {0};
@@ -268,13 +261,6 @@ tl::optional<Packet> Packet::decrypt(Packet &p, const std::string &shared_key) {
   decrypt_packet.insert(dec_data, ntohs(b.length) + sizeof(Bodyheader));
 
   return tl::make_optional(decrypt_packet);
-
-#else
-  Packet decrypt_packet;
-  decrypt_packet.insert(p.data(), p.size());
-
-  return tl::make_optional(decrypt_packet);
-#endif
 }
 
 bool Packet::verifySeqence(Packet &p, uint16_t &prev_seq) {
@@ -376,111 +362,6 @@ void Packet::makeSensorModel(const uint8_t &model) {
   d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_MODEL));
   d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
   d_.insert(d_.end(), model);
-}
-
-tl::optional<Packet> Packet::makeSessionAPData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                               const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  // TODO:
-  //   for (int i = index; i < index + Global::once_aps_; i++) {
-  //     p.makeAPData(*(Global::aps_[i % Global::aps_.size()]));
-  //   }
-  p.makeDataResponseBody(DataResponse::DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeSessionAPs(std::vector<APPtr> aps, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                            const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  for (auto ap : aps) {
-    p.makeAPData(*ap);
-  }
-  p.makeDataResponseBody(DataResponse::DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeSessionAP(AP ap, const uint32_t &sensor_id, const uint16_t &send_seq, const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  p.makeAPData(ap);
-  p.makeDataResponseBody(DataResponse::DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeSessionClientData(const int &index, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                                   const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  // TODO:
-  //   for (int i = index; i < index + Global::once_clients_; i++) {
-  //     p.makeClientData((*Global::clients_[i % Global::clients_.size()]));
-  //   }
-  p.makeDataResponseBody(DataResponse::DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeSessionClients(std::vector<ClientPtr> clients, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                                const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  for (auto client : clients) {
-    p.makeClientData(*client);
-  }
-  p.makeDataResponseBody(DataResponse::DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeSessionClient(Client client, const uint32_t &sensor_id, const uint16_t &send_seq,
-                                               const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  p.makeClientData(client);
-  p.makeDataResponseBody(DataResponse::DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeSensorInfo(const uint32_t &sensor_id, const SensorInfo &si, const uint16_t &send_seq,
-                                            const std::string shared_key) {
-  Packet p;
-
-  p.makeSensorID(sensor_id);
-  p.makeSensorMAC(si.mac);
-  p.makeSensorIP(si.ip);
-  p.makeSensorVersion(si.version);
-  p.makeSensorRevision(si.revision);
-  p.makeSensorModel(si.model);
-
-  p.makeDataResponseBody(DataResponse::SENSOR_STATUS_DATA);
-  p.makeDataResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
 }
 
 void Packet::makeAPData(const AP &ap) {
@@ -712,30 +593,6 @@ void Packet::makeHeader(uint16_t send_seq) {
   h.length = htons(d_.size());
 
   d_.insert(d_.begin(), reinterpret_cast<uint8_t *>(&h), reinterpret_cast<uint8_t *>(&h) + sizeof(h));
-}
-
-tl::optional<Packet> Packet::makeLoginResponseChallenge(const uint8_t *auth_code, const uint32_t &nonce, const uint16_t &send_seq,
-                                                        const std::string shared_key) {
-  Packet p;
-
-  p.makeLoginResponseTLV(LoginValue::AUTH, MD5::HASH_SIZE, auth_code);
-  uint32_t n = htonl(nonce);
-  p.makeLoginResponseTLV(LoginValue::NONCE, sizeof(n), reinterpret_cast<uint8_t *>(&n));
-  p.makeLoginResponseBody(LoginResponse::CHALLENGE);
-  p.makeLoginResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
-}
-
-tl::optional<Packet> Packet::makeLoginSuccess(const uint16_t &send_seq, const std::string shared_key) {
-  Packet p;
-
-  p.makeLoginResponseBody(LoginResponse::OK);
-  p.makeLoginResponseBodyHeader();
-  p.makeHeader(send_seq);
-
-  return Packet::encrypt(p, shared_key);
 }
 
 void Packet::print() {

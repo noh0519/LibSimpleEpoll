@@ -43,15 +43,15 @@ public:
   ConnectionMode getMode();
 
   void loginReadFunc(int fd, short what);
-  void loginWriteFunc(int fd, short what);
   void dataWriteFunc(int fd, short what);
+  void configReadFunc(int fd, short what);
 
   void pushSessionData(nlohmann::json sessions);
 
 private:
   uint32_t getHeaderLength(std::vector<uint8_t> vec);
 
-  void recvData(Packet &p);
+  tl::optional<Packet> recvData(Packet &p);
   void sendData(Packet &p);
   bool verifyPacketHeaderLength(std::vector<uint8_t> vec);
   tl::optional<uint32_t> getNonce(std::vector<uint8_t> vec);
@@ -60,6 +60,14 @@ private:
   void sendLoginChallenge();
   void sendLoginSuccess();
   void sendSessionData(nlohmann::json session);
+  void sendSessionAPData(AP ap);
+  void sendSessionAPsData(std::vector<AP> aps);
+  void sendSessionClientData(Client client);
+  void sendSessionClientsData(std::vector<Client> clients);
+  void sendSensorInfo();
+
+  AP getAPFromJson(nlohmann::json j);
+  Client getClientFromJson(nlohmann::json j, uint64_t bssid, uint8_t channel);
 };
 
 #endif /* _SOCKETMANAGER_HPP_ */
