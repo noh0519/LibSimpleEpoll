@@ -1,3 +1,6 @@
+#ifndef _SEPOLL_HPP_
+#define _SEPOLL_HPP_
+
 #include "def_hdr.hpp"
 #include <algorithm>
 #include <arpa/inet.h>
@@ -407,3 +410,5 @@ private:
     return NULL;
   };
 };
+
+#endif /* _SEPOLL_HPP_ */

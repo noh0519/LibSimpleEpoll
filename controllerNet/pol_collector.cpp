@@ -1,4 +1,5 @@
 #include "pol_collector.hpp"
+#include <fmt/format.h>
 #include <thread>
 
 PolCollector::PolCollector() {}
@@ -11,4 +12,14 @@ void PolCollector::run() {
   }
 }
 
-void PolCollector::setSockMan(std::shared_ptr<SocketManager> sockman) { m_sockmans.push_back(sockman); }
+void PolCollector::setSEpollRef(std::shared_ptr<SEpoll<SocketManager>> sepoll_ref) { //
+  _sepoll_ref = sepoll_ref;
+}
+
+void PolCollector::setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> total_sockmans_ref) { //
+  _total_sockmans_ref = total_sockmans_ref;
+}
+
+void PolCollector::setSockMan(std::shared_ptr<SocketManager> sockman) { //
+  _sockmans.push_back(sockman);
+}

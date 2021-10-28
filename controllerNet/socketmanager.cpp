@@ -25,25 +25,10 @@ ConnectionMode SocketManager::getMode() { return _mode; };
 void SocketManager::loginReadFunc(int fd, short what) {
   if (what & EPOLLIN) {
     Packet p;
-    recvData(p);
+    auto decrypted = recvData(p);
 
-    auto decrypted = Packet::decrypt(p, _sharedkey);
     if (!decrypted) {
-      fmt::print("Err decrypt\n");
-      _state = ConnectionState::INIT;
-      return;
-    }
-
-#if 0
-  if (!Packet::verifySeqence(*decrypted, se->recv_seq_)) {
-    _state = ConnectionState::INIT;
-    return;
-  }
-#endif
-
-    if (!Packet::verifyPacketHeaderLength(*decrypted)) {
-      fmt::print("Err verifyPacketHeaderLength\n");
-      _state = ConnectionState::INIT;
+      // TODO: 연결 끊김 처리
       return;
     }
 
@@ -91,17 +76,13 @@ void SocketManager::loginReadFunc(int fd, short what) {
       _mode = *(*decrypted).getMode();
       fmt::print("get mode : {} ({})\n", _mode, _sock);
       if (_mode == ConnectionMode::DATA) {
-        // TODO: Need Set Event (Data Mode)
         _state = ConnectionState::REQUEST_DATA;
       } else if (_mode == ConnectionMode::CONFIG) {
-        // TODO: Need Set Event (Config Mode)
         _state = ConnectionState::SET_CONFIG;
       }
     }
   }
 }
-
-void SocketManager::loginWriteFunc(int fd, short what) {}
 
 void SocketManager::dataWriteFunc(int fd, short what) {
   if (what | EPOLLOUT) {
@@ -110,6 +91,11 @@ void SocketManager::dataWriteFunc(int fd, short what) {
       _sessions.pop_front();
       sendSessionData(session);
     }
+  }
+}
+
+void SocketManager::configReadFunc(int fd, short what) {
+  if (what | EPOLLIN) {
   }
 }
 
@@ -125,7 +111,7 @@ uint32_t SocketManager::getHeaderLength(std::vector<uint8_t> vec) {
   return ntohs((*h).length);
 }
 
-void SocketManager::recvData(Packet &p) {
+tl::optional<Packet> SocketManager::recvData(Packet &p) {
   int ret = 0;
   int flags = 0;
   uint32_t size = 0;
@@ -139,10 +125,10 @@ void SocketManager::recvData(Packet &p) {
     ret = recv(_sock, buf + size, sizeof(Header) - size, flags);
     if (ret < 0) {
       fmt::print("receive < 0 ! ({})\n", _sock);
-      return;
+      return tl::nullopt;
     } else if (ret == 0) {
       fmt::print("receive == 0 ! ({})\n", _sock);
-      return;
+      return tl::nullopt;
     }
     size += ret;
   } while (size != sizeof(Header));
@@ -156,17 +142,39 @@ void SocketManager::recvData(Packet &p) {
   do {
     ret = recv(_sock, buf + size, header_length - size, flags);
     if (ret < 0) {
-      return;
+      return tl::nullopt;
       fmt::print("receive < 0 !! ({})\n", _sock);
     } else if (ret == 0) {
       fmt::print("receive == 0 !! ({})\n", _sock);
-      return;
+      return tl::nullopt;
     }
     size += ret;
   } while (size != header_length);
   p.insert(buf, size);
 
   // fmt::print("end packet receive (%d)\n", _sock);
+
+  auto decrypted = Packet::decrypt(p, _sharedkey);
+  if (!decrypted) {
+    fmt::print("Err decrypt\n");
+    _state = ConnectionState::INIT;
+    return tl::nullopt;
+  }
+
+#if 0
+  if (!Packet::verifySeqence(*decrypted, se->recv_seq_)) {
+    _state = ConnectionState::INIT;
+    return tl::nullopt;
+  }
+#endif
+
+  if (!Packet::verifyPacketHeaderLength(*decrypted)) {
+    fmt::print("Err verifyPacketHeaderLength\n");
+    _state = ConnectionState::INIT;
+    return tl::nullopt;
+  }
+
+  return decrypted;
 }
 
 void SocketManager::sendData(Packet &p) {
@@ -246,54 +254,39 @@ void SocketManager::sendLoginChallenge() {
 
   calcSensorAuthCode(nonce);
 
-  auto p = Packet::makeLoginResponseChallenge(_c_auth, nonce, _send_seq++, _sharedkey);
-  if (p) {
-    sendData(*p);
+  Packet p;
+
+  p.makeLoginResponseTLV(LoginValue::AUTH, MD5::HASH_SIZE, _c_auth);
+  nonce = htonl(nonce);
+  p.makeLoginResponseTLV(LoginValue::NONCE, sizeof(nonce), reinterpret_cast<uint8_t *>(&nonce));
+  p.makeLoginResponseBody(LoginResponse::CHALLENGE);
+  p.makeLoginResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
   }
 }
 
 void SocketManager::sendLoginSuccess() {
-  auto p = Packet::makeLoginSuccess(_send_seq++, _sharedkey);
-  if (p) {
-    sendData(*p);
+  Packet p;
+
+  p.makeLoginResponseBody(LoginResponse::OK);
+  p.makeLoginResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
   }
 }
 
 void SocketManager::sendSessionData(nlohmann::json session) {
   for (auto a : session) {
     // send ap
-    AP ap;
-    ap.bssid_ = static_cast<uint64_t>(a.value("band", 0)) << (8 * 6);
-    ap.bssid_ += mac::string_to_mac(a.value("bssid", "00:00:00:00:00:00"));
-    ap.ssid_ = a.value("ssid", "");
-    ap.channel_ = static_cast<uint8_t>(a.value("frame_channel", 0));
-    ap.rssi_ = static_cast<int8_t>(a.value("rssi", -90));
-    ap.cipher_ = static_cast<uint8_t>(a.value("cipher", 0));
-    ap.auth_ = static_cast<uint8_t>(a.value("auth", 0));
-    ap.ssid_broadcast_ = static_cast<bool>(a.value("ssid_broadcast", false));
-    ap.channel_width_ = static_cast<uint8_t>(a.value("channel_width", 0));
-    ap.wps_ = static_cast<bool>(a.value("wps", false));
-    ap.pmf_ = static_cast<bool>(a.value("pmf", false));
-    ap.media_ = 1;
-    ap.net_type_ = 1;
-    ap.signature_[32] = {0};
-    ap.mgnt_count_ = 0;
-    ap.ctrl_count_ = 0;
-    ap.data_count_ = 0;
-    ap.wds_peer_ = 0;
-    ap.support_rate_[16] = {0};
-    ap.mcs_ = 0;
-    ap.support_mimo_ = 0;
-    ap.highest_rate_ = 0;
-    ap.spatial_stream_ = 0;
-    ap.guard_interval_ = 0;
-    ap.last_dt_ = 0;
-    ap.probe_dt_ = 0;
-
-    auto p_ap = Packet::makeSessionAP(ap, _sensor_id, _send_seq++, _sharedkey);
-    if (p_ap) {
-      sendData(*p_ap);
-    }
+    AP ap = getAPFromJson(a);
+    sendSessionAPData(ap);
     // ~send ap
 
     // send clients
@@ -302,30 +295,146 @@ void SocketManager::sendSessionData(nlohmann::json session) {
       continue;
     }
     for (auto c : j_clients) {
-      Client client;
-      client.client_mac_ = mac::string_to_mac(c.value("client", "00:00:00:00:00:00"));
-      client.rssi_ = static_cast<int8_t>(c.value("rssi", -90));
-      client.bssid_ = ap.bssid_;
-      client.channel_ = ap.channel_;
-      client.eap_id_[64] = {0};
-      client.data_rate_ = 0;
-      client.noise_ = -90;
-      client.mimo_ = 0;
-      client.signature_[32] = {0};
-      client.signature5_[32] = {0};
-      client.data_size_ = 0;
-      client.mgnt_count_ = 0;
-      client.ctrl_count_ = 0;
-      client.data_count_ = 0;
-      client.auth_count_ = 0;
-      client.last_dt_ = 0;
-      client.probe_dt_ = 0;
-
-      auto p_client = Packet::makeSessionClient(client, _sensor_id, _send_seq++, _sharedkey);
-      if (p_client) {
-        sendData(*p_client);
-      }
+      Client client = getClientFromJson(c, ap.bssid_, ap.channel_);
+      sendSessionClientData(client);
     }
     // ~send clients
   }
+}
+
+void SocketManager::sendSessionAPData(AP ap) {
+  Packet p;
+
+  p.makeSensorID(_sensor_id);
+  p.makeAPData(ap);
+  p.makeDataResponseBody(DataResponse::DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
+  }
+}
+
+void SocketManager::sendSessionAPsData(std::vector<AP> aps) {
+  Packet p;
+
+  p.makeSensorID(_sensor_id);
+  for (auto ap : aps) {
+    p.makeAPData(ap);
+  }
+  p.makeDataResponseBody(DataResponse::DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
+  }
+}
+
+void SocketManager::sendSessionClientData(Client client) {
+  Packet p;
+
+  p.makeSensorID(_sensor_id);
+  p.makeClientData(client);
+  p.makeDataResponseBody(DataResponse::DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
+  }
+}
+
+void SocketManager::sendSessionClientsData(std::vector<Client> clients) {
+  Packet p;
+
+  p.makeSensorID(_sensor_id);
+  for (auto client : clients) {
+    p.makeClientData(client);
+  }
+  p.makeDataResponseBody(DataResponse::DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
+  }
+}
+
+void SocketManager::sendSensorInfo() {
+  Packet p;
+
+  p.makeSensorID(_sensor_id);
+  // p.makeSensorMAC(si.mac);
+  // p.makeSensorIP(si.ip);
+  // p.makeSensorVersion(si.version);
+  // p.makeSensorRevision(si.revision);
+  // p.makeSensorModel(si.model);
+
+  p.makeDataResponseBody(DataResponse::SENSOR_STATUS_DATA);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  auto pp = Packet::encrypt(p, _sharedkey);
+  if (pp) {
+    sendData(*pp);
+  }
+}
+
+AP SocketManager::getAPFromJson(nlohmann::json j) {
+  AP ap;
+  ap.bssid_ = static_cast<uint64_t>(j.value("band", 0)) << (8 * 6);
+  ap.bssid_ += mac::string_to_mac(j.value("bssid", "00:00:00:00:00:00"));
+  ap.ssid_ = j.value("ssid", "");
+  ap.channel_ = static_cast<uint8_t>(j.value("frame_channel", 0));
+  ap.rssi_ = static_cast<int8_t>(j.value("rssi", -90));
+  ap.cipher_ = static_cast<uint8_t>(j.value("cipher", 0));
+  ap.auth_ = static_cast<uint8_t>(j.value("auth", 0));
+  ap.ssid_broadcast_ = static_cast<bool>(j.value("ssid_broadcast", false));
+  ap.channel_width_ = static_cast<uint8_t>(j.value("channel_width", 0));
+  ap.wps_ = static_cast<bool>(j.value("wps", false));
+  ap.pmf_ = static_cast<bool>(j.value("pmf", false));
+  ap.media_ = 1;
+  ap.net_type_ = 1;
+  ap.signature_[32] = {0};
+  ap.mgnt_count_ = 0;
+  ap.ctrl_count_ = 0;
+  ap.data_count_ = 0;
+  ap.wds_peer_ = 0;
+  ap.support_rate_[16] = {0};
+  ap.mcs_ = 0;
+  ap.support_mimo_ = 0;
+  ap.highest_rate_ = 0;
+  ap.spatial_stream_ = 0;
+  ap.guard_interval_ = 0;
+  ap.last_dt_ = 0;
+  ap.probe_dt_ = 0;
+  return ap;
+}
+
+Client SocketManager::getClientFromJson(nlohmann::json j, uint64_t bssid, uint8_t channel) {
+  Client client;
+  client.client_mac_ = mac::string_to_mac(j.value("client", "00:00:00:00:00:00"));
+  client.rssi_ = static_cast<int8_t>(j.value("rssi", -90));
+  client.bssid_ = bssid;
+  client.channel_ = channel;
+  client.eap_id_[64] = {0};
+  client.data_rate_ = 0;
+  client.noise_ = -90;
+  client.mimo_ = 0;
+  client.signature_[32] = {0};
+  client.signature5_[32] = {0};
+  client.data_size_ = 0;
+  client.mgnt_count_ = 0;
+  client.ctrl_count_ = 0;
+  client.data_count_ = 0;
+  client.auth_count_ = 0;
+  client.last_dt_ = 0;
+  client.probe_dt_ = 0;
+  return client;
 }
