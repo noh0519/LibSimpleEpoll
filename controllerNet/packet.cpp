@@ -1,8 +1,8 @@
 #include "packet.hpp"
 #include "aria.hpp"
-#include "enums.hpp"
 #include "mac_util.hpp"
 #include "md5.hpp"
+#include "protocol.hpp"
 #include "sha1v2.hpp"
 #include "sha256.hpp"
 #include <arpa/inet.h>

@@ -3,8 +3,8 @@
 
 #include "ap.hpp"
 #include "client.hpp"
-#include "enums.hpp"
 #include "optional.hpp"
+#include "protocol.hpp"
 #include "sha1.hpp"
 #include <nlohmann/json.hpp>
 #include <string>

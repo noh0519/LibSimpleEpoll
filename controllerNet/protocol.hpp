@@ -18,7 +18,7 @@ enum class Product : uint8_t {
 
 enum class Messages : uint8_t {
   C2S_LOGIN_REQUEST = 0x01,
-  S2C_LoginResponse = 0x02,
+  S2C_LOGIN_RESPONSE = 0x02,
   C2S_DATA_REQUEST = 0x03,
   S2C_DATA_RESPONSE = 0x04,
   C2S_SET_CONFIG = 0x05,

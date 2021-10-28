@@ -535,7 +535,6 @@ void EncryptCBC(const Byte *mk, uint32_t keyBits, Byte *indata, uint32_t indata_
 void DecryptCBC(const Byte *mk, uint32_t keyBits, Byte *indata, uint32_t indata_len, uint8_t *outdata) {
   unsigned char rk[16 * 17] = {0}; // 라운드키
   int rk_len = DecKeySetup(mk, rk, keyBits);
-  // rk_len = 12;
   int block_unit = 16;
   int block_len = indata_len / block_unit;
   if ((indata_len % block_unit) > 0) {

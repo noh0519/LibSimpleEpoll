@@ -132,23 +132,22 @@ int main(int argc, char **argv) {
 #if 1
   // set sensor vector
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
-  std::shared_ptr<SocketManager> wlancollector_sensor = std::make_shared<SocketManager>("Secui00@!");
-  (*sockmans).push_back(wlancollector_sensor);
-  std::shared_ptr<SocketManager> polprovider_sensor = std::make_shared<SocketManager>("Secui00@!");
-  (*sockmans).push_back(polprovider_sensor);
+  std::shared_ptr<SocketManager> sockman1 = std::make_shared<SocketManager>("Secui00@!");
+  (*sockmans).push_back(sockman1);
+  std::shared_ptr<SocketManager> sockman2 = std::make_shared<SocketManager>("Secui00@!");
+  (*sockmans).push_back(sockman2);
 
   // set SEpoll
-  auto lamb_setFunc = [](SocketManager &sm, int sock) -> void {
+  auto lamb_setFunc = [](SocketManager &sockman, int sock) -> void {
     if (sock == -1) {
-      sm.setState(ConnectionState::INIT);
-    } else if (sm.getSock() == -1 && sock > 0) {
-      sm.setState(ConnectionState::VERIFY_MAC);
+      sockman.setState(ConnectionState::INIT);
+    } else if (sockman.getSock() == -1 && sock > 0) {
+      sockman.setState(ConnectionState::VERIFY_MAC);
     }
-    sm.setSock(sock);
+    sockman.setSock(sock);
   };
-  auto lamb_getFunc = [](SocketManager sm) -> int { return sm.getSock(); };
-  SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sockmans);
-  mysepoll.init(SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
+  auto lamb_getFunc = [](SocketManager sockman) -> int { return sockman.getSock(); };
+  SEpoll<SocketManager> mysepoll(lamb_setFunc, lamb_getFunc, sockmans, SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
   mysepoll.setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginReadFunc(fd, what); },
                            EPOLLIN);
   // mysepoll.setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },

@@ -173,23 +173,26 @@ private:
 protected:
 public:
   SEpoll(std::function<void(FDType &, int)> fd_set_func, std::function<int(FDType)> fd_get_func,
-         std::shared_ptr<std::vector<std::shared_ptr<FDType>>> fds) {
+         std::shared_ptr<std::vector<std::shared_ptr<FDType>>> fds, SEPOLL_TYPE type, std::string ip, uint16_t port) {
     m_fd_set_func = fd_set_func;
     m_fd_get_func = fd_get_func;
     m_fds = fds;
+
     m_epoll_size = fds->size() + 1;
-  }
 
-  SEPOLL_RESULT init(SEPOLL_TYPE type, std::string ip, uint16_t port) {
     m_type = type;
-
     m_port = port;
     m_ip = ip;
 
+    SEPOLL_RESULT ret = SEPOLL_RESULT::SUCCESS;
     if (m_type == SEPOLL_TYPE::ACCEPT) {
-      return initAccept();
+      ret = initAccept();
     } else { // SEPOLL_TYPE::CONNECT
-      return initConnect();
+      ret = initConnect();
+    }
+
+    if (ret == SEPOLL_RESULT::FAIL) {
+      printf("SEpoll Init Failed\n");
     }
   }
 
