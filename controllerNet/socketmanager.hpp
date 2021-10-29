@@ -53,6 +53,15 @@ private:
   void sendData(Packet &p);
   void calcControllerAuthCode(const uint32_t &nonce);
   void calcSensorAuthCode(const uint32_t &nonce);
+
+  /* verify packet */
+  bool verifyPacket(Packet p);
+  bool verifyPacketSeq(Packet p, uint16_t &recv_seq);
+  bool verifyPacketHeaderLength(Packet p);
+  bool verifyPacketHash(Packet p);
+  bool verifyPacketBodyHeaderType(Packet p, ConnectionState state);
+  bool verifyPacketBodyHeaderLength(Packet p);
+
   void sendLoginChallenge();
   void sendLoginSuccess();
   void sendSessionData(nlohmann::json session);

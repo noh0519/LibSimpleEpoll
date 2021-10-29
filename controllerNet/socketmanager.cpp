@@ -163,7 +163,7 @@ tl::optional<Packet> SocketManager::recvData(Packet &p) {
   }
 #endif
 
-  if (!Packet::verifyPacketHeaderLength(*decrypted)) {
+  if (!verifyPacketHeaderLength(*decrypted)) {
     fmt::print("Err verifyPacketHeaderLength\n");
     _state = ConnectionState::INIT;
     return tl::nullopt;
@@ -205,6 +205,89 @@ void SocketManager::calcSensorAuthCode(const uint32_t &nonce) {
   auto ret = md5.hmac_md5(n, k);
 
   memcpy(_s_auth, ret.data(), sizeof(_s_auth));
+}
+
+bool SocketManager::verifyPacket(Packet p) {
+#if 0
+  // debug log
+  auto verifySeq = [&recv_seq = recv_seq_, this](Packet p) {
+    bool success = verifyPacketSeq(p, recv_seq);
+    // debug log
+    return success ? unit_(p) : nullopt;
+  };
+  auto verifyHeaderLength = [this](Packet p) {
+    bool success = verifyPacketHeaderLength(p);
+    // debug log
+    return success ? unit_(p) : nullopt;
+  };
+  auto verifyHash = [this](Packet p) {
+    bool success = verifyPacketHash(p);
+    // debug log
+    return success ? unit_(p) : nullopt;
+  };
+  auto verifyBodyHeaderType = [state = state_, this](Packet p) {
+    bool success = verifyPacketBodyHeaderType(p, state);
+    // debug log
+    return success ? unit_(p) : nullopt;
+  };
+  auto verifyBodyHeaderLength = [this](Packet p) {
+    bool success = verifyPacketBodyHeaderLength(p);
+    // debug log
+    return success ? unit_(p) : nullopt;
+  };
+
+  auto result = p | verifySeq | verifyHeaderLength | verifyHash | verifyBodyHeaderType | verifyBodyHeaderLength;
+
+  // debug log
+
+  return (result) ? true : false;
+#endif
+  return true;
+}
+
+bool SocketManager::verifyPacketSeq(Packet p, uint16_t &recv_seq) {
+  uint16_t seq = p.getSeq();
+  // debug log
+  if (recv_seq == 65535)
+    recv_seq = 0;
+  if (recv_seq == 0) {
+    recv_seq = seq;
+    return true;
+  } else if (recv_seq < seq) {
+    recv_seq = seq;
+    return true;
+  }
+  return false;
+}
+
+bool SocketManager::verifyPacketHeaderLength(Packet p) {
+  if (p.getHeaderLength() == p.size() - sizeof(Header)) {
+    return true;
+  }
+
+  // error log
+  return false;
+}
+
+bool SocketManager::verifyPacketHash(Packet p) {
+  p = p;
+  return true;
+}
+
+bool SocketManager::verifyPacketBodyHeaderType(Packet p, ConnectionState state) {
+  if (state == ConnectionState::LOGIN_REQUEST_START)
+    return p.getBodyHeaderType() == Messages::S2C_LOGIN_RESPONSE;
+  if (state == ConnectionState::LOGIN_REQUEST_CHALLENGE)
+    return p.getBodyHeaderType() == Messages::S2C_LOGIN_RESPONSE;
+  if (state == ConnectionState::REQUEST_DATA)
+    return p.getBodyHeaderType() == Messages::S2C_DATA_RESPONSE;
+  return false;
+}
+
+bool SocketManager::verifyPacketBodyHeaderLength(Packet p) {
+  if (p.getBodyHeaderLength() == p.size() - sizeof(Header) - sizeof(Bodyheader))
+    return true;
+  return false;
 }
 
 void SocketManager::sendLoginChallenge() {

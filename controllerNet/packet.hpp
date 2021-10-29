@@ -63,10 +63,6 @@ class Packet {
 private:
   std::vector<uint8_t> d_;
 
-  uint16_t getSeq();
-  uint16_t getBodyHeaderLength();
-  Messages getBodyHeaderType();
-
 public:
   Packet();
   ~Packet();
@@ -76,7 +72,11 @@ public:
   size_t size();
   uint8_t *data();
 
+  uint16_t getSeq();
   uint16_t getHeaderLength();
+  Messages getBodyHeaderType();
+  uint16_t getBodyHeaderLength();
+  uint8_t getBodyType();
   std::vector<uint8_t> getAuthCode();
   tl::optional<uint32_t> getNonce();
   tl::optional<uint32_t> getSensorID();
@@ -84,13 +84,6 @@ public:
 
   void encrypt(const std::string &shared_key);
   tl::optional<Packet> decrypt(const std::string &shared_key);
-
-  static bool verifySeqence(Packet &p, uint16_t &prev_seq);
-  static bool verifyPacketHeaderLength(Packet p);
-  static bool verifyPacketHash(Packet p);
-  static bool verifyPacketBodyHeaderType(Packet p, ConnectionState state);
-  static bool verifyPacketBodyHeaderLength(Packet p);
-  static bool verifyAuth(Packet p);
 
   void makeSensorID(const uint32_t &sensor_id);
   void makeSensorMAC(const uint64_t &mac);

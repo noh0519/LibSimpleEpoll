@@ -29,14 +29,18 @@ uint16_t Packet::getHeaderLength() {
   return length;
 }
 
+Messages Packet::getBodyHeaderType() {
+  Bodyheader *b = reinterpret_cast<Bodyheader *>(&d_[sizeof(Header)]);
+  return (*b).type;
+}
+
 uint16_t Packet::getBodyHeaderLength() {
   Bodyheader *b = reinterpret_cast<Bodyheader *>(&d_[sizeof(Header)]);
   return ntohs((*b).length);
 }
 
-Messages Packet::getBodyHeaderType() {
-  Bodyheader *b = reinterpret_cast<Bodyheader *>(&d_[sizeof(Header)]);
-  return (*b).type;
+uint8_t Packet::getBodyType() { //
+  return d_[sizeof(Header) + sizeof(Bodyheader)];
 }
 
 std::vector<uint8_t> Packet::getAuthCode() {
@@ -262,56 +266,6 @@ tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
   decrypt_packet.insert(dec_data, ntohs(b.length) + sizeof(Bodyheader));
 
   return tl::make_optional(decrypt_packet);
-}
-
-bool Packet::verifySeqence(Packet &p, uint16_t &prev_seq) {
-  uint16_t seq = p.getSeq();
-  if (prev_seq == 65535)
-    prev_seq = 0;
-  if (prev_seq == 0) {
-    prev_seq = seq;
-    return true;
-  } else if (prev_seq < seq) {
-    prev_seq = seq;
-    return true;
-  }
-  return false;
-}
-
-bool Packet::verifyPacketHeaderLength(Packet p) {
-  if (p.getHeaderLength() == p.size() - sizeof(Header)) {
-    return true;
-  }
-  //   fmt::print("===> verifyHeaderLength failed - header_len: {} != data_len: {} - sizeof(header): {}", p.getHeaderLength(), p.size(),
-  //              sizeof(Header));
-  return false;
-}
-
-bool Packet::verifyPacketHash(Packet p) { return true; }
-
-bool Packet::verifyPacketBodyHeaderType(Packet p, ConnectionState state) {
-  if (state == ConnectionState::LOGIN_REQUEST_START)
-    return p.getBodyHeaderType() == Messages::S2C_LOGIN_RESPONSE;
-  if (state == ConnectionState::LOGIN_REQUEST_CHALLENGE)
-    return p.getBodyHeaderType() == Messages::S2C_LOGIN_RESPONSE;
-  if (state == ConnectionState::REQUEST_DATA)
-    return p.getBodyHeaderType() == Messages::S2C_DATA_RESPONSE;
-  return false;
-}
-
-bool Packet::verifyPacketBodyHeaderLength(Packet p) {
-  if (p.getBodyHeaderLength() == p.size() - sizeof(Header) - sizeof(Bodyheader))
-    return true;
-  return false;
-}
-
-bool Packet::verifyAuth(Packet p) {
-  // vector<uint8_t> auth_code = p.getAuthCode();
-  // tl::optional<uint32_t> nonce  = p.getNonce();
-  // if (nonce) {
-  // }
-  //
-  // return true;
 }
 
 void Packet::makeSensorID(const uint32_t &sensor_id) {
