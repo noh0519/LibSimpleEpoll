@@ -61,7 +61,7 @@ struct SensorInfo {
 
 class Packet {
 private:
-  std::vector<uint8_t> d_;
+  std::vector<uint8_t> _data;
 
 public:
   Packet();

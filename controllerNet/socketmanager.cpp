@@ -95,8 +95,11 @@ void SocketManager::dataWriteFunc(int fd, short what) {
 
 void SocketManager::configReadFunc(int fd, short what) {
   if (what | EPOLLIN) {
-    auto decrypted = recvData();
-    // fmt::print("call configReadFunc\n");
+    auto recvpacket = recvData();
+    if (!recvpacket) {
+      return;
+    }
+    // recvpacket->print();
   }
 }
 

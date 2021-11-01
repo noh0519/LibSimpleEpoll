@@ -13,10 +13,14 @@ Packet::Packet(){};
 
 Packet::~Packet(){};
 
-void Packet::insert(uint8_t *buf, size_t len) { d_.insert(d_.end(), buf, buf + len); }
+void Packet::insert(uint8_t *buf, size_t len) { _data.insert(_data.end(), buf, buf + len); }
+
+size_t Packet::size() { return _data.size(); }
+
+uint8_t *Packet::data() { return _data.data(); }
 
 uint16_t Packet::getSeq() {
-  HEADER *h = reinterpret_cast<HEADER *>(&d_[0]);
+  HEADER *h = reinterpret_cast<HEADER *>(&_data[0]);
   uint16_t seq;
   memcpy(&seq, &(*h).seq, sizeof(seq));
   seq = ntohs(seq);
@@ -24,29 +28,29 @@ uint16_t Packet::getSeq() {
 }
 
 uint16_t Packet::getHeaderLength() {
-  HEADER *h = reinterpret_cast<HEADER *>(&d_[0]);
+  HEADER *h = reinterpret_cast<HEADER *>(&_data[0]);
   uint16_t length = ntohs((*h).length);
   return length;
 }
 
 Messages Packet::getBodyHeaderType() {
-  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&d_[sizeof(HEADER)]);
+  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&_data[sizeof(HEADER)]);
   return (*b).type;
 }
 
 uint16_t Packet::getBodyHeaderLength() {
-  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&d_[sizeof(HEADER)]);
+  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&_data[sizeof(HEADER)]);
   return ntohs((*b).length);
 }
 
 uint8_t Packet::getBodyType() { //
-  return d_[sizeof(HEADER) + sizeof(BODYHEADER)];
+  return _data[sizeof(HEADER) + sizeof(BODYHEADER)];
 }
 
 std::vector<uint8_t> Packet::getAuthCode() {
   std::vector<uint8_t> auth_code;
   int32_t body_pos = sizeof(HEADER) + sizeof(BODYHEADER);
-  TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
+  TLV *body = reinterpret_cast<TLV *>(&_data[body_pos]);
   uint16_t length = 0;
 
   if (static_cast<LoginRequest>((*body).type) != LoginRequest::CHALLENGE) {
@@ -54,11 +58,11 @@ std::vector<uint8_t> Packet::getAuthCode() {
     return auth_code;
   }
   while (true) {
-    LOGIN_REQUEST_TLV *tlv = reinterpret_cast<LOGIN_REQUEST_TLV *>(&d_[body_pos + sizeof(*body) + length]);
+    LOGIN_REQUEST_TLV *tlv = reinterpret_cast<LOGIN_REQUEST_TLV *>(&_data[body_pos + sizeof(*body) + length]);
 
     if ((*tlv).type == LoginValue::AUTH) {
       int data_pos = body_pos + sizeof(*body) + length + 3;
-      auth_code.insert(auth_code.end(), &d_[data_pos], &d_[data_pos + ntohs((*tlv).length)]);
+      auth_code.insert(auth_code.end(), &_data[data_pos], &_data[data_pos + ntohs((*tlv).length)]);
       return auth_code;
     }
 
@@ -73,7 +77,7 @@ std::vector<uint8_t> Packet::getAuthCode() {
 tl::optional<uint32_t> Packet::getNonce() {
   uint32_t *nonce;
   int32_t body_pos = sizeof(HEADER) + sizeof(BODYHEADER);
-  TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
+  TLV *body = reinterpret_cast<TLV *>(&_data[body_pos]);
   uint16_t length = 0;
 
   if (static_cast<LoginRequest>((*body).type) != LoginRequest::START) {
@@ -81,11 +85,11 @@ tl::optional<uint32_t> Packet::getNonce() {
     return tl::nullopt;
   }
   while (true) {
-    TLV *tlv = reinterpret_cast<TLV *>(&d_[body_pos + sizeof(*body) + length]);
+    TLV *tlv = reinterpret_cast<TLV *>(&_data[body_pos + sizeof(*body) + length]);
 
     if (static_cast<LoginValue>((*tlv).type) == LoginValue::NONCE) {
       int data_pos = body_pos + sizeof(*body) + length + 3;
-      nonce = reinterpret_cast<uint32_t *>(&d_[data_pos]);
+      nonce = reinterpret_cast<uint32_t *>(&_data[data_pos]);
       auto n = ntohl(*nonce);
       return tl::make_optional<uint32_t>(n);
     }
@@ -101,7 +105,7 @@ tl::optional<uint32_t> Packet::getNonce() {
 tl::optional<uint32_t> Packet::getSensorID() {
   uint32_t *sensor_id;
   int32_t body_pos = sizeof(HEADER) + sizeof(BODYHEADER);
-  TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
+  TLV *body = reinterpret_cast<TLV *>(&_data[body_pos]);
   uint16_t length = 0;
 
   if (static_cast<SetConfig>((*body).type) != SetConfig::SENSOR_ID) {
@@ -109,11 +113,11 @@ tl::optional<uint32_t> Packet::getSensorID() {
     return tl::nullopt;
   }
   while (true) {
-    TLV *tlv = reinterpret_cast<TLV *>(&d_[body_pos + sizeof(*body) + length]);
+    TLV *tlv = reinterpret_cast<TLV *>(&_data[body_pos + sizeof(*body) + length]);
 
     if (static_cast<SetSensorIDValue>((*tlv).type) == SetSensorIDValue::SENSOR_ID) {
       int data_pos = body_pos + sizeof(*body) + length + 3;
-      sensor_id = reinterpret_cast<uint32_t *>(&d_[data_pos]);
+      sensor_id = reinterpret_cast<uint32_t *>(&_data[data_pos]);
       auto s = ntohl(*sensor_id);
       return tl::make_optional<uint32_t>(s);
     }
@@ -134,9 +138,6 @@ tl::optional<ConnectionMode> Packet::getMode() {
   return tl::nullopt;
 }
 
-size_t Packet::size() { return d_.size(); }
-uint8_t *Packet::data() { return d_.data(); }
-
 void Packet::encrypt(const std::string &shared_key) {
   std::vector<uint8_t> enc_packet; // 암호화가 완료된 패킷
   uint8_t data[8196] = {0};        // 암호화할 데이터
@@ -152,7 +153,7 @@ void Packet::encrypt(const std::string &shared_key) {
   SHA256 sha256;
   uint8_t digest[SHA256::DIGEST_SIZE] = {0};
 
-  memcpy(data, d_.data() + sizeof(HEADER), enc_data_len);
+  memcpy(data, _data.data() + sizeof(HEADER), enc_data_len);
 
   /* 데이터 무결성 값을 패킷의 맨 뒤에 붙여준다. */
   sha256.sha256_bin(data, enc_data_len, digest);
@@ -192,18 +193,18 @@ void Packet::encrypt(const std::string &shared_key) {
 
   enc_packet.insert(enc_packet.begin(), reinterpret_cast<uint8_t *>(&h), reinterpret_cast<uint8_t *>(&h) + sizeof(h));
 
-  d_.swap(enc_packet);
+  _data.swap(enc_packet);
 }
 
 tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
   // Packet enc_packet;
   uint8_t data[8196] = {0}; // 암호화할 데이터
   uint8_t dec_data[8196] = {0};
-  uint32_t dec_len = d_.size() - sizeof(HEADER);
+  uint32_t dec_len = _data.size() - sizeof(HEADER);
 
-  memcpy(data, d_.data() + sizeof(HEADER), d_.size() - sizeof(HEADER));
+  memcpy(data, _data.data() + sizeof(HEADER), _data.size() - sizeof(HEADER));
 
-  HEADER *h = reinterpret_cast<HEADER *>(d_.data());
+  HEADER *h = reinterpret_cast<HEADER *>(_data.data());
 
   /** make secret_key */
   uint8_t secret_key[128] = {0};
@@ -262,7 +263,7 @@ tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
   h->length = htons(header_length);
 
   Packet decrypt_packet;
-  decrypt_packet.insert(d_.data(), sizeof(HEADER));
+  decrypt_packet.insert(_data.data(), sizeof(HEADER));
   decrypt_packet.insert(dec_data, ntohs(b.length) + sizeof(BODYHEADER));
 
   return tl::make_optional(decrypt_packet);
@@ -272,51 +273,51 @@ void Packet::makeSensorID(const uint32_t &sensor_id) {
   auto s_id = htonl(sensor_id);
   auto length = htons(static_cast<uint16_t>(sizeof(sensor_id)));
 
-  d_.insert(d_.end(), static_cast<uint8_t>(DataValue::SENSOR_ID));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&s_id), reinterpret_cast<uint8_t *>(&s_id) + sizeof(s_id));
+  _data.insert(_data.end(), static_cast<uint8_t>(DataValue::SENSOR_ID));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&s_id), reinterpret_cast<uint8_t *>(&s_id) + sizeof(s_id));
 }
 
 void Packet::makeSensorMAC(const uint64_t &mac) {
   auto s_mac = mac::mac_to_byte(mac);
   auto length = htons(static_cast<uint16_t>(s_mac.size()));
 
-  d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::MAC_ADDRESS));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), s_mac.begin(), s_mac.end());
+  _data.insert(_data.end(), static_cast<uint8_t>(SensorStatusDataValue::MAC_ADDRESS));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), s_mac.begin(), s_mac.end());
 }
 
 void Packet::makeSensorIP(const std::string &ip) {
   auto length = htons(static_cast<uint16_t>(ip.size()));
 
-  d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::IP_ADDRESS));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), ip.begin(), ip.end());
+  _data.insert(_data.end(), static_cast<uint8_t>(SensorStatusDataValue::IP_ADDRESS));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), ip.begin(), ip.end());
 }
 
 void Packet::makeSensorVersion(const std::string &ver) {
   auto length = htons(static_cast<uint16_t>(ver.size()));
 
-  d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_VERSION));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), ver.begin(), ver.end());
+  _data.insert(_data.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_VERSION));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), ver.begin(), ver.end());
 }
 
 void Packet::makeSensorRevision(const uint32_t &rev) {
   auto s_rev = htonl(rev);
   auto length = htons(static_cast<uint16_t>(sizeof(rev)));
 
-  d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_REVISION));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&s_rev), reinterpret_cast<uint8_t *>(&s_rev) + sizeof(s_rev));
+  _data.insert(_data.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_REVISION));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&s_rev), reinterpret_cast<uint8_t *>(&s_rev) + sizeof(s_rev));
 }
 
 void Packet::makeSensorModel(const uint8_t &model) {
   auto length = htons(static_cast<uint16_t>(sizeof(model)));
 
-  d_.insert(d_.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_MODEL));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), model);
+  _data.insert(_data.end(), static_cast<uint8_t>(SensorStatusDataValue::SENSOR_MODEL));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), model);
 }
 
 void Packet::makeAPData(const AP &ap) {
@@ -394,10 +395,10 @@ void Packet::makeAPData(const AP &ap) {
   std::vector<uint8_t> probe_dt = ap.getAPDataProbeDT();
   p.makeAPDataTLV(APData::PROBE_DT, probe_dt.size(), probe_dt.data());
 
-  uint16_t length = htons((uint16_t)p.d_.size());
-  d_.insert(d_.end(), static_cast<uint8_t>(DataValue::APS));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), p.d_.begin(), p.d_.end());
+  uint16_t length = htons((uint16_t)p._data.size());
+  _data.insert(_data.end(), static_cast<uint8_t>(DataValue::APS));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), p._data.begin(), p._data.end());
 }
 
 void Packet::makeClientData(const Client &client) {
@@ -451,10 +452,10 @@ void Packet::makeClientData(const Client &client) {
   std::vector<uint8_t> probe_dt = client.getClientDataProbeDT();
   p.makeClientDataTLV(ClientData::PROBE_DT, probe_dt.size(), probe_dt.data());
 
-  uint16_t length = htons((uint16_t)p.d_.size());
-  d_.insert(d_.end(), static_cast<uint8_t>(DataValue::CLIENTS));
-  d_.insert(d_.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
-  d_.insert(d_.end(), p.d_.begin(), p.d_.end());
+  uint16_t length = htons((uint16_t)p._data.size());
+  _data.insert(_data.end(), static_cast<uint8_t>(DataValue::CLIENTS));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), p._data.begin(), p._data.end());
 }
 
 void Packet::makeAPDataTLV(APData type, uint16_t len, const uint8_t *data) {
@@ -462,9 +463,9 @@ void Packet::makeAPDataTLV(APData type, uint16_t len, const uint8_t *data) {
   length[0] = len >> 8;
   length[1] = len;
 
-  d_.insert(d_.end(), static_cast<uint8_t>(type));
-  d_.insert(d_.end(), length, length + 2);
-  d_.insert(d_.end(), data, data + len);
+  _data.insert(_data.end(), static_cast<uint8_t>(type));
+  _data.insert(_data.end(), length, length + 2);
+  _data.insert(_data.end(), data, data + len);
 }
 
 void Packet::makeClientDataTLV(ClientData type, uint16_t len, const uint8_t *data) {
@@ -472,9 +473,9 @@ void Packet::makeClientDataTLV(ClientData type, uint16_t len, const uint8_t *dat
   length[0] = len >> 8;
   length[1] = len;
 
-  d_.insert(d_.end(), static_cast<uint8_t>(type));
-  d_.insert(d_.end(), length, length + 2);
-  d_.insert(d_.end(), data, data + len);
+  _data.insert(_data.end(), static_cast<uint8_t>(type));
+  _data.insert(_data.end(), length, length + 2);
+  _data.insert(_data.end(), data, data + len);
 }
 
 void Packet::makeLoginResponseTLV(LoginValue type, uint16_t len, const uint8_t *data) {
@@ -482,19 +483,19 @@ void Packet::makeLoginResponseTLV(LoginValue type, uint16_t len, const uint8_t *
   length[0] = len >> 8;
   length[1] = len;
 
-  d_.insert(d_.end(), static_cast<uint8_t>(type));
-  d_.insert(d_.end(), length, length + 2);
-  d_.insert(d_.end(), data, data + len);
+  _data.insert(_data.end(), static_cast<uint8_t>(type));
+  _data.insert(_data.end(), length, length + 2);
+  _data.insert(_data.end(), data, data + len);
 }
 
 void Packet::makeLoginResponseBody(LoginResponse type) {
-  uint16_t length = htons(d_.size());
+  uint16_t length = htons(_data.size());
 
-  auto type_pos = d_.begin();
-  d_.insert(type_pos, static_cast<uint8_t>(type));
+  auto type_pos = _data.begin();
+  _data.insert(type_pos, static_cast<uint8_t>(type));
 
-  auto length_pos = d_.begin() + sizeof(type);
-  d_.insert(length_pos, reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  auto length_pos = _data.begin() + sizeof(type);
+  _data.insert(length_pos, reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
 }
 
 void Packet::makeLoginResponseBodyHeader() {
@@ -502,21 +503,21 @@ void Packet::makeLoginResponseBodyHeader() {
 
   b.type = Messages::S2C_LOGIN_RESPONSE;
   b.product = Product::SENSOR;
-  b.length = htons(d_.size());
+  b.length = htons(_data.size());
   b.res1 = 0;
   b.res2 = 0;
 
-  d_.insert(d_.begin(), reinterpret_cast<uint8_t *>(&b), reinterpret_cast<uint8_t *>(&b) + sizeof(b));
+  _data.insert(_data.begin(), reinterpret_cast<uint8_t *>(&b), reinterpret_cast<uint8_t *>(&b) + sizeof(b));
 }
 
 void Packet::makeDataResponseBody(DataResponse type) {
-  uint16_t length = htons(d_.size());
+  uint16_t length = htons(_data.size());
 
-  auto type_pos = d_.begin();
-  d_.insert(type_pos, static_cast<uint8_t>(type));
+  auto type_pos = _data.begin();
+  _data.insert(type_pos, static_cast<uint8_t>(type));
 
-  auto length_pos = d_.begin() + sizeof(type);
-  d_.insert(length_pos, reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  auto length_pos = _data.begin() + sizeof(type);
+  _data.insert(length_pos, reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
 }
 
 void Packet::makeDataResponseBodyHeader() {
@@ -524,11 +525,11 @@ void Packet::makeDataResponseBodyHeader() {
 
   b.type = Messages::S2C_DATA_RESPONSE;
   b.product = Product::SENSOR;
-  b.length = htons(d_.size());
+  b.length = htons(_data.size());
   b.res1 = 0;
   b.res2 = 0;
 
-  d_.insert(d_.begin(), reinterpret_cast<uint8_t *>(&b), reinterpret_cast<uint8_t *>(&b) + sizeof(b));
+  _data.insert(_data.begin(), reinterpret_cast<uint8_t *>(&b), reinterpret_cast<uint8_t *>(&b) + sizeof(b));
 }
 
 void Packet::makeHeader(uint16_t send_seq) {
@@ -545,13 +546,13 @@ void Packet::makeHeader(uint16_t send_seq) {
   h.nonce = 0;
   h.subtype = Protocol::SWMP;
   h.res = 0;
-  h.length = htons(d_.size());
+  h.length = htons(_data.size());
 
-  d_.insert(d_.begin(), reinterpret_cast<uint8_t *>(&h), reinterpret_cast<uint8_t *>(&h) + sizeof(h));
+  _data.insert(_data.begin(), reinterpret_cast<uint8_t *>(&h), reinterpret_cast<uint8_t *>(&h) + sizeof(h));
 }
 
 void Packet::print() {
-  HEADER *h = reinterpret_cast<HEADER *>(&d_[0]);
+  HEADER *h = reinterpret_cast<HEADER *>(&_data[0]);
 
   fmt::print("+ HEADER --------------\n");
   fmt::print("| version: {:02x}\n", (*h).version);
@@ -565,7 +566,7 @@ void Packet::print() {
   fmt::print("| res    : {:02x}\n", (*h).res);
   fmt::print("| length : {:04x}\n", ntohs((*h).length));
 
-  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&d_[sizeof(*h)]);
+  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&_data[sizeof(*h)]);
 
   fmt::print("+ BODYHEADER ----------\n");
   fmt::print("| type   : {:02x}\n", static_cast<uint8_t>((*b).type));
@@ -575,10 +576,10 @@ void Packet::print() {
   fmt::print("| res2   : {:02x}\n", (*b).res2);
   fmt::print("+----------------------\n");
 
-  TLV *tlv = reinterpret_cast<TLV *>(&d_[sizeof(*h) + sizeof(*b)]);
+  TLV *tlv = reinterpret_cast<TLV *>(&_data[sizeof(*h) + sizeof(*b)]);
 
-  fmt::print("+ BODY ----------------");
-  fmt::print("| type   : %02x", (*tlv).type);
-  fmt::print("| length : %04x", ntohs((*tlv).length));
-  fmt::print("+----------------------");
+  fmt::print("+ BODY ----------------\n");
+  fmt::print("| type   : {:02x}\n", (*tlv).type);
+  fmt::print("| length : {:04x}\n", ntohs((*tlv).length));
+  fmt::print("+----------------------\n\n");
 }
