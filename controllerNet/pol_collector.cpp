@@ -22,4 +22,7 @@ void PolCollector::setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_p
 
 void PolCollector::setSockMan(std::shared_ptr<SocketManager> sockman) { //
   _sockmans.push_back(sockman);
+  _sepoll_ref->setWriteFunc(
+      sockman->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->configReadFunc(fd, what); },
+      sockman.get(), EPOLLIN);
 }

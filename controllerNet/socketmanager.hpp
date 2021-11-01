@@ -49,7 +49,7 @@ public:
   void pushSessionData(nlohmann::json sessions);
 
 private:
-  tl::optional<Packet> recvData(Packet &p);
+  tl::optional<Packet> recvData();
   void sendData(Packet &p);
   void calcControllerAuthCode(const uint32_t &nonce);
   void calcSensorAuthCode(const uint32_t &nonce);

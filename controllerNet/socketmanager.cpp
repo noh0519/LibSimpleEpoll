@@ -24,8 +24,7 @@ ConnectionMode SocketManager::getMode() { return _mode; };
 
 void SocketManager::loginReadFunc(int fd, short what) {
   if (what & EPOLLIN) {
-    Packet p;
-    auto decrypted = recvData(p);
+    auto decrypted = recvData();
 
     if (!decrypted) {
       // TODO: 연결 끊김 처리
@@ -96,6 +95,8 @@ void SocketManager::dataWriteFunc(int fd, short what) {
 
 void SocketManager::configReadFunc(int fd, short what) {
   if (what | EPOLLIN) {
+    auto decrypted = recvData();
+    // fmt::print("call configReadFunc\n");
   }
 }
 
@@ -106,7 +107,9 @@ void SocketManager::pushSessionData(nlohmann::json sessions) { //
   _sessions.push_back(sessions);
 }
 
-tl::optional<Packet> SocketManager::recvData(Packet &p) {
+tl::optional<Packet> SocketManager::recvData() {
+  Packet p;
+
   int ret = 0;
   int flags = 0;
   uint32_t size = 0;

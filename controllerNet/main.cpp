@@ -69,6 +69,7 @@ int main(int argc, char **argv) {
         wp->setSockMan(*it);
         it = sockmans->erase(it);
       } else if (static_cast<int>((*it)->getMode()) == static_cast<int>(ConnectionMode::CONFIG)) {
+        mysepoll->unsetReadFunc((*it)->getSock());
         pc->setSockMan(*it);
         it = sockmans->erase(it);
       } else {
