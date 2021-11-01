@@ -120,7 +120,7 @@ tl::optional<Packet> SocketManager::recvData() {
   // fmt::print("start header receive ({})\n", _sock);
   memset(buf, 0x00, 8192);
   do {
-    ret = recv(_sock, buf + size, sizeof(Header) - size, flags);
+    ret = recv(_sock, buf + size, sizeof(HEADER) - size, flags);
     if (ret < 0) {
       fmt::print("receive < 0 ! ({})\n", _sock);
       return tl::nullopt;
@@ -129,7 +129,7 @@ tl::optional<Packet> SocketManager::recvData() {
       return tl::nullopt;
     }
     size += ret;
-  } while (size != sizeof(Header));
+  } while (size != sizeof(HEADER));
   p.insert(buf, size);
 
   /* get body, tlv data */
@@ -264,7 +264,7 @@ bool SocketManager::verifyPacketSeq(Packet p, uint16_t &recv_seq) {
 }
 
 bool SocketManager::verifyPacketHeaderLength(Packet p) {
-  if (p.getHeaderLength() == p.size() - sizeof(Header)) {
+  if (p.getHeaderLength() == p.size() - sizeof(HEADER)) {
     return true;
   }
 
@@ -288,7 +288,7 @@ bool SocketManager::verifyPacketBodyHeaderType(Packet p, ConnectionState state) 
 }
 
 bool SocketManager::verifyPacketBodyHeaderLength(Packet p) {
-  if (p.getBodyHeaderLength() == p.size() - sizeof(Header) - sizeof(Bodyheader))
+  if (p.getBodyHeaderLength() == p.size() - sizeof(HEADER) - sizeof(BODYHEADER))
     return true;
   return false;
 }

@@ -15,36 +15,36 @@ class Client;
 using APPtr = std::shared_ptr<AP>;
 using ClientPtr = std::shared_ptr<Client>;
 
-struct Flags {
+typedef struct _flags {
   uint8_t cipher : 1;
   uint8_t fragment : 1;
   uint8_t reserved : 6;
-} __attribute__((packed));
+} __attribute__((packed)) FLAGS;
 
-struct Header {
+typedef struct _header {
   uint8_t version;
   uint16_t seq;
-  Flags flags;
+  FLAGS flags;
   uint8_t offset;
   uint8_t option;
   uint16_t nonce;
   Protocol subtype;
   uint8_t res;
   uint16_t length;
-} __attribute__((packed));
+} __attribute__((packed)) HEADER;
 
-struct Bodyheader {
+typedef struct _bodyheader {
   Messages type;
   Product product;
   uint16_t length;
   uint8_t res1;
   uint8_t res2;
-} __attribute__((packed));
+} __attribute__((packed)) BODYHEADER;
 
-struct TLV {
+typedef struct _tlv {
   uint8_t type;
   uint16_t length;
-} __attribute__((packed));
+} __attribute__((packed)) TLV;
 
 typedef struct _login_request_tlv {
   LoginValue type;

@@ -16,7 +16,7 @@ Packet::~Packet(){};
 void Packet::insert(uint8_t *buf, size_t len) { d_.insert(d_.end(), buf, buf + len); }
 
 uint16_t Packet::getSeq() {
-  Header *h = reinterpret_cast<Header *>(&d_[0]);
+  HEADER *h = reinterpret_cast<HEADER *>(&d_[0]);
   uint16_t seq;
   memcpy(&seq, &(*h).seq, sizeof(seq));
   seq = ntohs(seq);
@@ -24,28 +24,28 @@ uint16_t Packet::getSeq() {
 }
 
 uint16_t Packet::getHeaderLength() {
-  Header *h = reinterpret_cast<Header *>(&d_[0]);
+  HEADER *h = reinterpret_cast<HEADER *>(&d_[0]);
   uint16_t length = ntohs((*h).length);
   return length;
 }
 
 Messages Packet::getBodyHeaderType() {
-  Bodyheader *b = reinterpret_cast<Bodyheader *>(&d_[sizeof(Header)]);
+  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&d_[sizeof(HEADER)]);
   return (*b).type;
 }
 
 uint16_t Packet::getBodyHeaderLength() {
-  Bodyheader *b = reinterpret_cast<Bodyheader *>(&d_[sizeof(Header)]);
+  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&d_[sizeof(HEADER)]);
   return ntohs((*b).length);
 }
 
 uint8_t Packet::getBodyType() { //
-  return d_[sizeof(Header) + sizeof(Bodyheader)];
+  return d_[sizeof(HEADER) + sizeof(BODYHEADER)];
 }
 
 std::vector<uint8_t> Packet::getAuthCode() {
   std::vector<uint8_t> auth_code;
-  int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
+  int32_t body_pos = sizeof(HEADER) + sizeof(BODYHEADER);
   TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
   uint16_t length = 0;
 
@@ -72,7 +72,7 @@ std::vector<uint8_t> Packet::getAuthCode() {
 
 tl::optional<uint32_t> Packet::getNonce() {
   uint32_t *nonce;
-  int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
+  int32_t body_pos = sizeof(HEADER) + sizeof(BODYHEADER);
   TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
   uint16_t length = 0;
 
@@ -100,7 +100,7 @@ tl::optional<uint32_t> Packet::getNonce() {
 
 tl::optional<uint32_t> Packet::getSensorID() {
   uint32_t *sensor_id;
-  int32_t body_pos = sizeof(Header) + sizeof(Bodyheader);
+  int32_t body_pos = sizeof(HEADER) + sizeof(BODYHEADER);
   TLV *body = reinterpret_cast<TLV *>(&d_[body_pos]);
   uint16_t length = 0;
 
@@ -152,7 +152,7 @@ void Packet::encrypt(const std::string &shared_key) {
   SHA256 sha256;
   uint8_t digest[SHA256::DIGEST_SIZE] = {0};
 
-  memcpy(data, d_.data() + sizeof(Header), enc_data_len);
+  memcpy(data, d_.data() + sizeof(HEADER), enc_data_len);
 
   /* 데이터 무결성 값을 패킷의 맨 뒤에 붙여준다. */
   sha256.sha256_bin(data, enc_data_len, digest);
@@ -175,12 +175,12 @@ void Packet::encrypt(const std::string &shared_key) {
 
   enc_packet.insert(enc_packet.begin(), enc_data, enc_data + enc_data_len);
 
-  Flags flags;
+  FLAGS flags;
   flags.cipher = 1;
   flags.fragment = 0;
   flags.reserved = 0;
 
-  Header h;
+  HEADER h;
   h.version = 0;
   h.seq = htons(getSeq());
   h.flags = flags;
@@ -199,11 +199,11 @@ tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
   // Packet enc_packet;
   uint8_t data[8196] = {0}; // 암호화할 데이터
   uint8_t dec_data[8196] = {0};
-  uint32_t dec_len = d_.size() - sizeof(Header);
+  uint32_t dec_len = d_.size() - sizeof(HEADER);
 
-  memcpy(data, d_.data() + sizeof(Header), d_.size() - sizeof(Header));
+  memcpy(data, d_.data() + sizeof(HEADER), d_.size() - sizeof(HEADER));
 
-  Header *h = reinterpret_cast<Header *>(d_.data());
+  HEADER *h = reinterpret_cast<HEADER *>(d_.data());
 
   /** make secret_key */
   uint8_t secret_key[128] = {0};
@@ -232,16 +232,16 @@ tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
   fmt::print("\n~dec_data\n");
 #endif
 
-  Bodyheader b;
+  BODYHEADER b;
   memcpy(&b, dec_data, sizeof(b));
 
   /** verify hash */
   uint8_t recv_hash[SHA256::DIGEST_SIZE] = {0};
-  memcpy(recv_hash, dec_data + sizeof(Bodyheader) + ntohs(b.length), SHA256::DIGEST_SIZE);
+  memcpy(recv_hash, dec_data + sizeof(BODYHEADER) + ntohs(b.length), SHA256::DIGEST_SIZE);
 
   uint8_t make_hash[SHA256::DIGEST_SIZE] = {0};
   SHA256 sha256;
-  sha256.sha256_bin(dec_data, ntohs(b.length) + sizeof(Bodyheader), make_hash);
+  sha256.sha256_bin(dec_data, ntohs(b.length) + sizeof(BODYHEADER), make_hash);
 
   if (memcmp(recv_hash, make_hash, SHA256::DIGEST_SIZE)) {
     fmt::print("Decrypt Failed - Hash verification failed.\n");
@@ -258,12 +258,12 @@ tl::optional<Packet> Packet::decrypt(const std::string &shared_key) {
     return tl::nullopt;
   }
 
-  uint16_t header_length = ntohs(b.length) + sizeof(Bodyheader);
+  uint16_t header_length = ntohs(b.length) + sizeof(BODYHEADER);
   h->length = htons(header_length);
 
   Packet decrypt_packet;
-  decrypt_packet.insert(d_.data(), sizeof(Header));
-  decrypt_packet.insert(dec_data, ntohs(b.length) + sizeof(Bodyheader));
+  decrypt_packet.insert(d_.data(), sizeof(HEADER));
+  decrypt_packet.insert(dec_data, ntohs(b.length) + sizeof(BODYHEADER));
 
   return tl::make_optional(decrypt_packet);
 }
@@ -498,7 +498,7 @@ void Packet::makeLoginResponseBody(LoginResponse type) {
 }
 
 void Packet::makeLoginResponseBodyHeader() {
-  Bodyheader b;
+  BODYHEADER b;
 
   b.type = Messages::S2C_LOGIN_RESPONSE;
   b.product = Product::SENSOR;
@@ -520,7 +520,7 @@ void Packet::makeDataResponseBody(DataResponse type) {
 }
 
 void Packet::makeDataResponseBodyHeader() {
-  Bodyheader b;
+  BODYHEADER b;
 
   b.type = Messages::S2C_DATA_RESPONSE;
   b.product = Product::SENSOR;
@@ -532,12 +532,12 @@ void Packet::makeDataResponseBodyHeader() {
 }
 
 void Packet::makeHeader(uint16_t send_seq) {
-  Flags flags;
+  FLAGS flags;
   flags.cipher = 0;
   flags.fragment = 0;
   flags.reserved = 0;
 
-  Header h;
+  HEADER h;
   h.version = 0;
   h.seq = htons(send_seq);
   h.flags = flags;
@@ -551,10 +551,9 @@ void Packet::makeHeader(uint16_t send_seq) {
 }
 
 void Packet::print() {
-#if 0
-  Header *h = reinterpret_cast<Header *>(&d_[0]);
+  HEADER *h = reinterpret_cast<HEADER *>(&d_[0]);
 
-  fmt::print("+ Header --------------\n");
+  fmt::print("+ HEADER --------------\n");
   fmt::print("| version: {:02x}\n", (*h).version);
   fmt::print("| seq    : {:04x}\n", ntohs((*h).seq));
   fmt::print("| flags  : {:02x} {:02x} {:04x}\n", static_cast<uint8_t>((*h).flags.cipher), static_cast<uint8_t>((*h).flags.fragment),
@@ -566,9 +565,9 @@ void Packet::print() {
   fmt::print("| res    : {:02x}\n", (*h).res);
   fmt::print("| length : {:04x}\n", ntohs((*h).length));
 
-  Bodyheader *b = reinterpret_cast<Bodyheader *>(&d_[sizeof(*h)]);
+  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&d_[sizeof(*h)]);
 
-  fmt::print("+ Bodyheader ----------\n");
+  fmt::print("+ BODYHEADER ----------\n");
   fmt::print("| type   : {:02x}\n", static_cast<uint8_t>((*b).type));
   fmt::print("| product: {:02x}\n", static_cast<uint8_t>((*b).product));
   fmt::print("| length : {:04x}\n", ntohs((*b).length));
@@ -576,13 +575,10 @@ void Packet::print() {
   fmt::print("| res2   : {:02x}\n", (*b).res2);
   fmt::print("+----------------------\n");
 
-#if 0
   TLV *tlv = reinterpret_cast<TLV *>(&d_[sizeof(*h) + sizeof(*b)]);
 
-  cm_logd("+ BODY ----------------");
-  cm_logd("| type   : %02x", (*tlv).type);
-  cm_logd("| length : %04x", ntohs((*tlv).length));
-  cm_logd("+----------------------");
-#endif
-#endif
+  fmt::print("+ BODY ----------------");
+  fmt::print("| type   : %02x", (*tlv).type);
+  fmt::print("| length : %04x", ntohs((*tlv).length));
+  fmt::print("+----------------------");
 }
