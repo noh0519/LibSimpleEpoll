@@ -1,6 +1,7 @@
 #ifndef _WIPS_STRESS_MAC_UTIL_HPP_
 #define _WIPS_STRESS_MAC_UTIL_HPP_
 
+#include <iomanip>
 #include <string>
 #include <vector>
 
@@ -27,6 +28,22 @@ static std::vector<uint8_t> mac_to_byte(const uint64_t &mac) {
   return ret;
 }
 
+static std::string pointer_to_mac(const uint8_t *ptr) {
+  /*
+  std::stringstream ss;
+  ss << std::setfill('0') << std::setw(2) << std::hex << *(ptr)             //
+     << ":" << std::setfill('0') << std::setw(2) << std::hex << *(ptr + 1)  //
+     << ":" << std::setfill('0') << std::setw(2) << std::hex << *(ptr + 2)  //
+     << ":" << std::setfill('0') << std::setw(2) << std::hex << *(ptr + 3)  //
+     << ":" << std::setfill('0') << std::setw(2) << std::hex << *(ptr + 4)  //
+     << ":" << std::setfill('0') << std::setw(2) << std::hex << *(ptr + 5); //
+  std::string str = ss.str();
+  */
+  char carray[18] = {0};
+  snprintf(carray, 18, "%02x:%02x:%02x:%02x:%02x:%02x", *(ptr), *(ptr + 1), *(ptr + 2), *(ptr + 3), *(ptr + 4), *(ptr + 5));
+  std::string str = carray;
+  return str;
+}
 } // namespace mac
 
 #endif /* _WIPS_STRESS_MAC_UTIL_HPP_ */

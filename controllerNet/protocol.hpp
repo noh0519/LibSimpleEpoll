@@ -68,6 +68,42 @@ enum class SetConfig : uint8_t {
   THREAT_POLICY = 0x08,
 };
 
+enum class SetConfigList : uint8_t {
+  AUTH_AP = 0x01,
+  AUTH_CLIENT = 0x02,
+  GUEST_AP = 0x03,
+  GUEST_CLIENT = 0x04,
+  EXTERNAL_AP = 0x05,
+  EXTERNAL_CLIENT = 0x06,
+  EXCEPT_AP = 0x07,
+  EXCEPT_CLIENT = 0x08,
+  BLOCK = 0x09,
+  ADMIN_BLOCK = 0x0A,
+  ROGUE_AP = 0x0B,
+  ROGUE_CLIENT = 0x0C,
+  POLICY = 0x10,
+  SENSOR_SETTING = 0x11,
+  TIMESYNC = 0x12,
+  GENERAL_CONFIG = 0x13,
+
+  AUTH_AP_HASH = 0x81,
+  AUTH_CLIENT_HASH = 0x82,
+  GUEST_AP_HASH = 0x83,
+  GUEST_CLIENT_HASH = 0x84,
+  EXTERNAL_AP_HASH = 0x85,
+  EXTERNAL_CLIENT_HASH = 0x86,
+  EXCEPT_AP_HASH = 0x87,
+  EXCEPT_CLIENT_HASH = 0x88,
+  BLOCK_HASH = 0x89,
+  ADMIN_BLOCK_HASH = 0x8A,
+  ROGUE_AP_HASH = 0x8B,
+  ROGUE_CLIENT_HASH = 0x8C,
+  POLICY_HASH = 0x90,
+  SENSOR_SETTING_HASH = 0x91,
+
+  SENSOR_ID = 0x00, // Sensor 해시 수신용 (건들지 마시오.)
+};
+
 enum class SetSensorIDValue : uint8_t {
   SENSOR_ID = 0x01,
 };

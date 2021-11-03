@@ -49,8 +49,19 @@ public:
   void pushSessionData(nlohmann::json sessions);
 
 private:
+  void recvConfigData(Packet p);
+
+  void setWhiteList(uint8_t *data, uint16_t length, SetConfigList setcfg);
+  void setThreatPolicy(uint8_t *data, uint16_t length);
+  void setHash(uint8_t *data, uint16_t length, SetConfigList setcfg);
+
+  std::string getThreatPolicyName(uint16_t pol_code);
+
+  void flushConfigData(SetConfigList setcfg);
+
   tl::optional<Packet> recvData();
   void sendData(Packet &p);
+
   void calcControllerAuthCode(const uint32_t &nonce);
   void calcSensorAuthCode(const uint32_t &nonce);
 

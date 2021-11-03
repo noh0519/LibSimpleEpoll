@@ -1,7 +1,9 @@
 #include "socketmanager.hpp"
 #include "mac_util.hpp"
+#include "publicmemory.hpp"
 #include "sys/socket.h"
 #include <fmt/format.h>
+#include <iomanip>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <string.h>
@@ -100,6 +102,478 @@ void SocketManager::configReadFunc(int fd, short what) {
       return;
     }
     // recvpacket->print();
+    switch (static_cast<SetConfig>(recvpacket->getBodyType())) {
+    case SetConfig::LIST_SINGLE:
+    case SetConfig::LIST_START:
+    case SetConfig::LIST_CONTINUE:
+    case SetConfig::LIST_FINISH:
+      recvConfigData(*recvpacket);
+      break;
+    case SetConfig::FIRMWARE:
+      break;
+    default:
+      break;
+    }
+  }
+}
+
+void SocketManager::recvConfigData(Packet p) {
+  uint16_t pos = sizeof(HEADER) + sizeof(BODYHEADER) + sizeof(TLV);
+  size_t total_size = p.size();
+
+  while (pos < total_size) {
+    TLV *tlv = reinterpret_cast<TLV *>(&p.data()[pos]);
+    SetConfigList tlv_type = static_cast<SetConfigList>(tlv->type);
+    uint16_t tlv_len = ntohs(tlv->length);
+    uint8_t *tlv_val = static_cast<uint8_t *>(&p.data()[pos + sizeof(TLV)]);
+
+    switch (tlv_type) {
+    case SetConfigList::AUTH_AP:
+    case SetConfigList::AUTH_CLIENT:
+    case SetConfigList::GUEST_AP:
+    case SetConfigList::GUEST_CLIENT:
+    case SetConfigList::EXTERNAL_AP:
+    case SetConfigList::EXTERNAL_CLIENT:
+    case SetConfigList::EXCEPT_AP:
+    case SetConfigList::EXCEPT_CLIENT:
+    case SetConfigList::ROGUE_AP:
+    case SetConfigList::ROGUE_CLIENT:
+      setWhiteList(tlv_val, tlv_len, tlv_type);
+      // for (int i = 0; i < tlv_len; i++) {
+      //   fmt::print("{:02x} ", *(tlv_val + i));
+      //   if (i % 6 == 5) {
+      //     fmt::print("\n");
+      //   }
+      // }
+      // fmt::print("\n");
+      break;
+    case SetConfigList::ROGUE_CLIENT_HASH:
+      break;
+    case SetConfigList::POLICY:
+      setThreatPolicy(tlv_val, tlv_len);
+      break;
+    case SetConfigList::BLOCK:
+      break;
+    case SetConfigList::ADMIN_BLOCK:
+      break;
+    case SetConfigList::SENSOR_SETTING:
+      break;
+    case SetConfigList::AUTH_AP_HASH:
+    case SetConfigList::AUTH_CLIENT_HASH:
+    case SetConfigList::GUEST_AP_HASH:
+    case SetConfigList::GUEST_CLIENT_HASH:
+    case SetConfigList::EXTERNAL_AP_HASH:
+    case SetConfigList::EXTERNAL_CLIENT_HASH:
+    case SetConfigList::EXCEPT_AP_HASH:
+    case SetConfigList::EXCEPT_CLIENT_HASH:
+    case SetConfigList::ROGUE_AP_HASH:
+    case SetConfigList::POLICY_HASH:
+    case SetConfigList::BLOCK_HASH:
+    case SetConfigList::ADMIN_BLOCK_HASH:
+    case SetConfigList::SENSOR_SETTING_HASH:
+      setHash(tlv_val, tlv_len, tlv_type);
+      flushConfigData(tlv_type);
+      break;
+    case SetConfigList::TIMESYNC:
+      break;
+    case SetConfigList::GENERAL_CONFIG:
+      break;
+    case SetConfigList::SENSOR_ID:
+      break;
+    default:
+      break;
+    }
+
+    pos += sizeof(TLV) + tlv_len;
+  }
+}
+
+void SocketManager::setWhiteList(uint8_t *data, uint16_t length, SetConfigList setcfg) {
+  uint16_t offset = 0;
+  std::string mac_str = "";
+
+  while (offset < length) {
+    switch (setcfg) {
+    case SetConfigList::AUTH_AP:
+      mac_str = mac::pointer_to_mac(data + offset);
+      fmt::print("{}\n", mac_str.c_str());
+      break;
+    case SetConfigList::AUTH_CLIENT:
+      break;
+    case SetConfigList::GUEST_AP:
+      break;
+    case SetConfigList::GUEST_CLIENT:
+      break;
+    case SetConfigList::EXTERNAL_AP:
+      break;
+    case SetConfigList::EXTERNAL_CLIENT:
+      break;
+    case SetConfigList::EXCEPT_AP:
+      break;
+    case SetConfigList::EXCEPT_CLIENT:
+      break;
+    case SetConfigList::ROGUE_AP:
+      break;
+    case SetConfigList::ROGUE_CLIENT:
+      break;
+    default:
+      break;
+    }
+
+    offset += 6;
+  }
+}
+
+void SocketManager::setThreatPolicy(uint8_t *data, uint16_t length) {
+  uint16_t offset = 0;
+
+  while (offset < length) {
+    nlohmann::json policy;
+
+    uint16_t pol_code = 0;
+    memcpy(&pol_code, data + offset, sizeof(uint16_t));
+    pol_code = htons(pol_code);
+    offset += sizeof(uint16_t);
+    policy["pol_code"] = pol_code;
+
+    uint8_t pol_use = *(data + offset);
+    offset += sizeof(uint8_t);
+    policy["pol_use"] = pol_use;
+
+    uint8_t auto_blk = *(data + offset);
+    offset += sizeof(uint8_t);
+    policy["auto_blk"] = auto_blk;
+
+    int8_t rss = *(data + offset);
+    offset += sizeof(int8_t);
+    policy["rss"] = rss;
+
+    uint8_t except_ext_ap = *(data + offset);
+    offset += sizeof(uint8_t);
+    policy["except_ext_ap"] = except_ext_ap;
+
+    uint16_t threshold = 0;
+    memcpy(&threshold, data + offset, sizeof(uint16_t));
+    threshold = htons(threshold);
+    offset += sizeof(uint16_t);
+    policy["threshold"] = threshold;
+
+    std::string pol_name = getThreatPolicyName(pol_code);
+    PublicMemory::_threat_policy[pol_name] = policy;
+  }
+}
+
+void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
+  switch (setcfg) {
+  case SetConfigList::AUTH_AP_HASH:
+    PublicMemory::_auth_aps_hash.clear();
+    PublicMemory::_auth_aps_hash.insert(PublicMemory::_auth_aps_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::AUTH_CLIENT_HASH:
+    PublicMemory::_auth_clients_hash.clear();
+    PublicMemory::_auth_clients_hash.insert(PublicMemory::_auth_clients_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::GUEST_AP_HASH:
+    PublicMemory::_auth_clients_hash.clear();
+    PublicMemory::_auth_clients_hash.insert(PublicMemory::_auth_clients_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::GUEST_CLIENT_HASH:
+    PublicMemory::_guest_clients_hash.clear();
+    PublicMemory::_guest_clients_hash.insert(PublicMemory::_guest_clients_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::EXTERNAL_AP_HASH:
+    PublicMemory::_external_aps_hash.clear();
+    PublicMemory::_external_aps_hash.insert(PublicMemory::_external_aps_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::EXTERNAL_CLIENT_HASH:
+    PublicMemory::_external_clients_hash.clear();
+    PublicMemory::_external_clients_hash.insert(PublicMemory::_external_clients_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::EXCEPT_AP_HASH:
+    PublicMemory::_except_aps_hash.clear();
+    PublicMemory::_except_aps_hash.insert(PublicMemory::_except_aps_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::EXCEPT_CLIENT_HASH:
+    PublicMemory::_except_clients_hash.clear();
+    PublicMemory::_except_clients_hash.insert(PublicMemory::_except_clients_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::ROGUE_AP_HASH:
+    PublicMemory::_rogue_aps_hash.clear();
+    PublicMemory::_rogue_aps_hash.insert(PublicMemory::_rogue_aps_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::ROGUE_CLIENT_HASH:
+    PublicMemory::_rogue_clients_hash.clear();
+    PublicMemory::_rogue_clients_hash.insert(PublicMemory::_rogue_clients_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::POLICY_HASH:
+    PublicMemory::_threat_policy_hash.clear();
+    PublicMemory::_threat_policy_hash.insert(PublicMemory::_threat_policy_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::BLOCK_HASH:
+    PublicMemory::_block_hash.clear();
+    PublicMemory::_block_hash.insert(PublicMemory::_block_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::ADMIN_BLOCK_HASH:
+    PublicMemory::_admin_block_hash.clear();
+    PublicMemory::_admin_block_hash.insert(PublicMemory::_admin_block_hash.begin(), data, data + length);
+    break;
+  case SetConfigList::SENSOR_SETTING_HASH:
+    PublicMemory::_sensor_setting_hash.clear();
+    PublicMemory::_sensor_setting_hash.insert(PublicMemory::_sensor_setting_hash.begin(), data, data + length);
+    break;
+  default:
+    break;
+  }
+}
+
+std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
+  std::string pol_name = "";
+  switch (pol_code) {
+  case 1:
+    pol_name = "misconfig_ap";
+    break;
+  case 2:
+    pol_name = "rogue_ap";
+    break;
+  case 3:
+    pol_name = "unauth_ap";
+    break;
+  case 4:
+    pol_name = "soft_ap";
+    break;
+  case 5:
+    pol_name = "mobile_router";
+    break;
+  case 6:
+    pol_name = "mobile_hotspot";
+    break;
+  case 7:
+    pol_name = "wds";
+    break;
+  case 8:
+    pol_name = "wps";
+    break;
+  case 257:
+    pol_name = "rogue_cli_auth_ap";
+    break;
+  case 258:
+    pol_name = "rogue_cli_guest_ap";
+    break;
+  case 259:
+    pol_name = "rogue_cli_unauth_ap";
+    break;
+  case 273:
+    pol_name = "auth_cli_unauth_ap";
+    break;
+  case 274:
+    pol_name = "auth_cli_guest_ap";
+    break;
+  case 275:
+    pol_name = "auth_cli_ext_ap";
+    break;
+  case 276:
+    pol_name = "violation_auth_cli_auth_ap";
+    break;
+  case 289:
+    pol_name = "unauth_cli_auth_ap";
+    break;
+  case 290:
+    pol_name = "unauth_cli_guest_ap";
+    break;
+  case 291:
+    pol_name = "unauth_cli_unauth_ap";
+    break;
+  case 292:
+    pol_name = "unauth_cli_ext_ap";
+    break;
+  case 305:
+    pol_name = "guest_cli_auth_ap";
+    break;
+  case 306:
+    pol_name = "guest_cli_unauth_ap";
+    break;
+  case 321:
+    pol_name = "ext_cli_auth_ap";
+    break;
+  case 322:
+    pol_name = "ext_cli_guest_ap";
+    break;
+  case 323:
+    pol_name = "ext_cli_unauth_ap";
+    break;
+  case 513:
+    pol_name = "adhoc_auth_cli";
+    break;
+  case 514:
+    pol_name = "adhoc_unauth_cli";
+    break;
+  case 515:
+    pol_name = "adhoc_rogue_cli";
+    break;
+  case 516:
+    pol_name = "adhoc_guest_cli";
+    break;
+  case 529:
+    pol_name = "direct_auth_cli";
+    break;
+  case 530:
+    pol_name = "direct_unauth_cli";
+    break;
+  case 531:
+    pol_name = "direct_rogue_cli";
+    break;
+  case 532:
+    pol_name = "direct_guest_cli";
+    break;
+  case 769:
+    pol_name = "anti_ap_spoof";
+    break;
+  case 770:
+    pol_name = "anti_cli_spoof";
+    break;
+  case 771:
+    pol_name = "anti_evil_twin_ap";
+    break;
+  case 1025:
+    pol_name = "rf_interference";
+    break;
+  case 1026:
+    pol_name = "wep_crack";
+    break;
+  case 1040:
+    pol_name = "flood";
+    break;
+  case 1041:
+    pol_name = "flood_assoc";
+    break;
+  case 1042:
+    pol_name = "flood_disassoc";
+    break;
+  case 1043:
+    pol_name = "flood_disassoc_b";
+    break;
+  case 1044:
+    pol_name = "flood_auth";
+    break;
+  case 1045:
+    pol_name = "flood_deauth";
+    break;
+  case 1046:
+    pol_name = "flood_deauth_b";
+    break;
+  case 1047:
+    pol_name = "flood_probe_req";
+    break;
+  case 1048:
+    pol_name = "flood_rts";
+    break;
+  case 1049:
+    pol_name = "flood_cts";
+    break;
+  case 1050:
+    pol_name = "flood_eapol_start";
+    break;
+  case 1051:
+    pol_name = "flood_eapol_logoff";
+    break;
+  case 1052:
+    pol_name = "flood_pspoll";
+    break;
+  case 1056:
+    pol_name = "malformed";
+    break;
+  case 1057:
+    pol_name = "malformed_ie_len";
+    break;
+  case 1058:
+    pol_name = "malformed_ie_dup";
+    break;
+  case 1059:
+    pol_name = "malformed_ie_redundant";
+    break;
+  case 1060:
+    pol_name = "malformed_abnormal_bss";
+    break;
+  case 1061:
+    pol_name = "malformed_assoc_req";
+    break;
+  case 1062:
+    pol_name = "malformed_ht_ie";
+    break;
+  case 1063:
+    pol_name = "malformed_deauth_code";
+    break;
+  case 1064:
+    pol_name = "malformed_disassoc_code";
+    break;
+  case 1065:
+    pol_name = "malformed_nul_probe_req";
+    break;
+  case 1066:
+    pol_name = "malformed_too_long_ssid";
+    break;
+  case 1067:
+    pol_name = "malformed_src_mac";
+    break;
+  case 1068:
+    pol_name = "malformed_overflow_eapol_key";
+    break;
+  case 1069:
+    pol_name = "malformed_fata_jack";
+    break;
+  default:
+    break;
+  }
+
+  return pol_name;
+}
+
+void SocketManager::flushConfigData(SetConfigList setcfg) {
+  switch (setcfg) {
+  case SetConfigList::AUTH_AP_HASH:
+    PublicMemory::_auth_aps.clear();
+    break;
+  case SetConfigList::AUTH_CLIENT_HASH:
+    PublicMemory::_auth_clients.clear();
+    break;
+  case SetConfigList::GUEST_AP_HASH:
+    PublicMemory::_guest_aps.clear();
+    break;
+  case SetConfigList::GUEST_CLIENT_HASH:
+    PublicMemory::_guest_clients.clear();
+    break;
+  case SetConfigList::EXTERNAL_AP_HASH:
+    PublicMemory::_external_aps.clear();
+    break;
+  case SetConfigList::EXTERNAL_CLIENT_HASH:
+    PublicMemory::_external_clients.clear();
+    break;
+  case SetConfigList::EXCEPT_AP_HASH:
+    PublicMemory::_except_aps.clear();
+    break;
+  case SetConfigList::EXCEPT_CLIENT_HASH:
+    PublicMemory::_except_clients.clear();
+    break;
+  case SetConfigList::ROGUE_AP_HASH:
+    PublicMemory::_rogue_aps.clear();
+    break;
+  case SetConfigList::ROGUE_CLIENT_HASH:
+    PublicMemory::_rogue_clients.clear();
+    break;
+  case SetConfigList::POLICY_HASH:
+    PublicMemory::_threat_policy.clear();
+    break;
+  case SetConfigList::BLOCK_HASH:
+    PublicMemory::_block.clear();
+    break;
+  case SetConfigList::ADMIN_BLOCK_HASH:
+    PublicMemory::_admin_block.clear();
+    break;
+  case SetConfigList::SENSOR_SETTING_HASH:
+    PublicMemory::_sensor_setting.clear();
+    break;
+  default:
+    break;
   }
 }
 
