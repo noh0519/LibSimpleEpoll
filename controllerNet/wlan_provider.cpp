@@ -1,6 +1,6 @@
 #include "wlan_provider.hpp"
 #include <fmt/format.h>
-#include <smartmq.hpp>
+#include <smart_io.hpp>
 #include <thread>
 
 template <typename... _String_> //
@@ -30,12 +30,12 @@ static void test_check_key() {
 
 /// AP 정보 조회
 static nlohmann::json get_aps() {
-  chkchk::SmartMQ smq("get", "ipc:///tmp/ap_get.uds");
+  SmartIO io("get", "ipc:///tmp/ap_get.uds");
   nlohmann::json aps;
   aps["1"] = "{}"_json; // 2GHz
   aps["2"] = "{}"_json; // 5GHz
 
-  auto res = smq.getall([&](nlohmann::json &&j) { //
+  auto res = io.getall([&](nlohmann::json &j) { //
     if (!check_key(j, "band", "bssid")) {
       assert("missing key: band + bssid");
       return;
@@ -49,10 +49,10 @@ static nlohmann::json get_aps() {
 
 /// AP-단말 세션 정보 조회
 static nlohmann::json get_ap_client() {
-  chkchk::SmartMQ smq("get", "ipc:///tmp/ap_client_get.uds");
+  SmartIO io("get", "ipc:///tmp/ap_client_get.uds");
   nlohmann::json ap_client;
 
-  auto res = smq.getall([&](nlohmann::json &&j) { //
+  auto res = io.getall([&](nlohmann::json &j) { //
     if (!check_key(j, "band", "bssid", "clients")) {
       assert("missing key: band + bssid + clients");
       return;
@@ -64,10 +64,10 @@ static nlohmann::json get_ap_client() {
 
 /// 단말 정보 조회
 static nlohmann::json get_clients() {
-  chkchk::SmartMQ smq("get", "ipc:///tmp/client_get.uds");
+  SmartIO io("get", "ipc:///tmp/client_get.uds");
   nlohmann::json clients;
 
-  auto res = smq.getall([&](nlohmann::json &&j) { //
+  auto res = io.getall([&](nlohmann::json &j) { //
     if (!check_key(j, "client")) {
       assert("missing key: client");
       return;
@@ -131,19 +131,25 @@ void WlanProvider::run() {
     for (auto a : _sockmans) {
       a->pushSessionData(sensor_data);
       _sepoll_ref->setWriteFunc(
-          a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
-          EPOLLOUT | EPOLLONESHOT);
+          a->getSock(),
+          [](int fd, short what, void *arg) -> void {
+            static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what);
+          },
+          a.get(), EPOLLOUT | EPOLLONESHOT);
     }
 
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
 }
 
-void WlanProvider::setSEpollRef(std::shared_ptr<SEpoll<SocketManager>> sepoll_ref) { //
+void WlanProvider::setSEpollRef(
+    std::shared_ptr<SEpoll<SocketManager>> sepoll_ref) { //
   _sepoll_ref = sepoll_ref;
 }
 
-void WlanProvider::setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> total_sockmans_ref) { //
+void WlanProvider::setTotalSockMansRef(
+    std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>>
+        total_sockmans_ref) { //
   _total_sockmans_ref = total_sockmans_ref;
 }
 
