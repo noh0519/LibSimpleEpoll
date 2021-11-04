@@ -139,13 +139,6 @@ void SocketManager::recvConfigData(Packet p) {
     case SetConfigList::ROGUE_AP:
     case SetConfigList::ROGUE_CLIENT:
       setWhiteList(tlv_val, tlv_len, tlv_type);
-      // for (int i = 0; i < tlv_len; i++) {
-      //   fmt::print("{:02x} ", *(tlv_val + i));
-      //   if (i % 6 == 5) {
-      //     fmt::print("\n");
-      //   }
-      // }
-      // fmt::print("\n");
       break;
     case SetConfigList::ROGUE_CLIENT_HASH:
       break;
@@ -193,28 +186,37 @@ void SocketManager::setWhiteList(uint8_t *data, uint16_t length, SetConfigList s
   std::string mac_str = "";
 
   while (offset < length) {
+    mac_str = mac::pointer_to_mac(data + offset);
     switch (setcfg) {
     case SetConfigList::AUTH_AP:
-      mac_str = mac::pointer_to_mac(data + offset);
-      fmt::print("{}\n", mac_str.c_str());
+      PublicMemory::_auth_aps["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::AUTH_CLIENT:
+      PublicMemory::_auth_clients["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::GUEST_AP:
+      PublicMemory::_guest_aps["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::GUEST_CLIENT:
+      PublicMemory::_guest_clients["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::EXTERNAL_AP:
+      PublicMemory::_external_aps["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::EXTERNAL_CLIENT:
+      PublicMemory::_external_clients["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::EXCEPT_AP:
+      PublicMemory::_except_aps["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::EXCEPT_CLIENT:
+      PublicMemory::_except_clients["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::ROGUE_AP:
+      PublicMemory::_rogue_aps["data"][mac_str.c_str()] = "";
       break;
     case SetConfigList::ROGUE_CLIENT:
+      PublicMemory::_rogue_clients["data"][mac_str.c_str()] = "";
       break;
     default:
       break;
@@ -531,6 +533,7 @@ std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
 void SocketManager::flushConfigData(SetConfigList setcfg) {
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH:
+    // std::cout << PublicMemory::_auth_aps.dump(4) << std::endl;
     PublicMemory::_auth_aps.clear();
     break;
   case SetConfigList::AUTH_CLIENT_HASH:
@@ -561,6 +564,7 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
     PublicMemory::_rogue_clients.clear();
     break;
   case SetConfigList::POLICY_HASH:
+    // std::cout << PublicMemory::_threat_policy.dump(4) << std::endl;
     PublicMemory::_threat_policy.clear();
     break;
   case SetConfigList::BLOCK_HASH:
