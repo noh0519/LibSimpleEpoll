@@ -168,8 +168,10 @@ void SocketManager::recvConfigData(Packet p) {
       flushConfigData(tlv_type);
       break;
     case SetConfigList::TIMESYNC:
+      setTimeSync(tlv_val, tlv_len);
       break;
     case SetConfigList::GENERAL_CONFIG:
+      setGeneralConfig(tlv_val, tlv_len);
       break;
     default:
       break;
@@ -259,7 +261,7 @@ void SocketManager::setThreatPolicy(uint8_t *data, uint16_t length) {
     policy["threshold"] = threshold;
 
     std::string pol_name = getThreatPolicyName(pol_code);
-    PublicMemory::_threat_policy[pol_name] = policy;
+    PublicMemory::_threat_policy["key"][pol_name] = policy;
   }
 }
 
@@ -272,56 +274,57 @@ void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg
   case SetConfigList::AUTH_AP_HASH:
     PublicMemory::_auth_aps_hash.clear();
     PublicMemory::_auth_aps_hash.insert(PublicMemory::_auth_aps_hash.begin(), data, data + length);
-    PublicMemory::_auth_aps["data"]["hash"] = var::base64_encode(PublicMemory::_auth_aps_hash).c_str();
+    PublicMemory::_auth_aps["data"]["hash"] = var::base64_encode(PublicMemory::_auth_aps_hash);
     break;
   case SetConfigList::AUTH_CLIENT_HASH:
     PublicMemory::_auth_clients_hash.clear();
     PublicMemory::_auth_clients_hash.insert(PublicMemory::_auth_clients_hash.begin(), data, data + length);
-    PublicMemory::_auth_clients["data"]["hash"] = var::base64_encode(PublicMemory::_auth_clients_hash).c_str();
+    PublicMemory::_auth_clients["data"]["hash"] = var::base64_encode(PublicMemory::_auth_clients_hash);
     break;
   case SetConfigList::GUEST_AP_HASH:
     PublicMemory::_guest_aps_hash.clear();
     PublicMemory::_guest_aps_hash.insert(PublicMemory::_guest_aps_hash.begin(), data, data + length);
-    PublicMemory::_guest_aps["data"]["hash"] = var::base64_encode(PublicMemory::_guest_aps_hash).c_str();
+    PublicMemory::_guest_aps["data"]["hash"] = var::base64_encode(PublicMemory::_guest_aps_hash);
     break;
   case SetConfigList::GUEST_CLIENT_HASH:
     PublicMemory::_guest_clients_hash.clear();
     PublicMemory::_guest_clients_hash.insert(PublicMemory::_guest_clients_hash.begin(), data, data + length);
-    PublicMemory::_guest_clients["data"]["hash"] = var::base64_encode(PublicMemory::_guest_clients_hash).c_str();
+    PublicMemory::_guest_clients["data"]["hash"] = var::base64_encode(PublicMemory::_guest_clients_hash);
     break;
   case SetConfigList::EXTERNAL_AP_HASH:
     PublicMemory::_external_aps_hash.clear();
     PublicMemory::_external_aps_hash.insert(PublicMemory::_external_aps_hash.begin(), data, data + length);
-    PublicMemory::_external_aps["data"]["hash"] = var::base64_encode(PublicMemory::_external_aps_hash).c_str();
+    PublicMemory::_external_aps["data"]["hash"] = var::base64_encode(PublicMemory::_external_aps_hash);
     break;
   case SetConfigList::EXTERNAL_CLIENT_HASH:
     PublicMemory::_external_clients_hash.clear();
     PublicMemory::_external_clients_hash.insert(PublicMemory::_external_clients_hash.begin(), data, data + length);
-    PublicMemory::_external_clients["data"]["hash"] = var::base64_encode(PublicMemory::_external_clients_hash).c_str();
+    PublicMemory::_external_clients["data"]["hash"] = var::base64_encode(PublicMemory::_external_clients_hash);
     break;
   case SetConfigList::EXCEPT_AP_HASH:
     PublicMemory::_except_aps_hash.clear();
     PublicMemory::_except_aps_hash.insert(PublicMemory::_except_aps_hash.begin(), data, data + length);
-    PublicMemory::_except_aps["data"]["hash"] = var::base64_encode(PublicMemory::_except_aps_hash).c_str();
+    PublicMemory::_except_aps["data"]["hash"] = var::base64_encode(PublicMemory::_except_aps_hash);
     break;
   case SetConfigList::EXCEPT_CLIENT_HASH:
     PublicMemory::_except_clients_hash.clear();
     PublicMemory::_except_clients_hash.insert(PublicMemory::_except_clients_hash.begin(), data, data + length);
-    PublicMemory::_except_clients["data"]["hash"] = var::base64_encode(PublicMemory::_except_clients_hash).c_str();
+    PublicMemory::_except_clients["data"]["hash"] = var::base64_encode(PublicMemory::_except_clients_hash);
     break;
   case SetConfigList::ROGUE_AP_HASH:
     PublicMemory::_rogue_aps_hash.clear();
     PublicMemory::_rogue_aps_hash.insert(PublicMemory::_rogue_aps_hash.begin(), data, data + length);
-    PublicMemory::_rogue_aps["data"]["hash"] = var::base64_encode(PublicMemory::_rogue_aps_hash).c_str();
+    PublicMemory::_rogue_aps["data"]["hash"] = var::base64_encode(PublicMemory::_rogue_aps_hash);
     break;
   case SetConfigList::ROGUE_CLIENT_HASH:
     PublicMemory::_rogue_clients_hash.clear();
     PublicMemory::_rogue_clients_hash.insert(PublicMemory::_rogue_clients_hash.begin(), data, data + length);
-    PublicMemory::_rogue_clients["data"]["hash"] = var::base64_encode(PublicMemory::_rogue_clients_hash).c_str();
+    PublicMemory::_rogue_clients["data"]["hash"] = var::base64_encode(PublicMemory::_rogue_clients_hash);
     break;
   case SetConfigList::POLICY_HASH:
     PublicMemory::_threat_policy_hash.clear();
     PublicMemory::_threat_policy_hash.insert(PublicMemory::_threat_policy_hash.begin(), data, data + length);
+    PublicMemory::_threat_policy["key"]["hash"] = var::base64_encode(PublicMemory::_threat_policy_hash);
     break;
   case SetConfigList::BLOCK_HASH:
     PublicMemory::_block_hash.clear();
