@@ -10,16 +10,11 @@ FetchContent_Declare(fmt
   GIT_REPOSITORY https://github.com/fmtlib/fmt.git
   GIT_TAG        master
 )
-FetchContent_Declare(smartdb
-  GIT_REPOSITORY https://github.com/chicchicforkfork/SmartDB.git
-  GIT_TAG        master
+ FetchContent_Declare(sensordb
+   GIT_REPOSITORY https://github.com/chicchicforkfork/SensorDB.git
+   GIT_TAG        master
 )
-# FetchContent_Declare(sensordb
-#   GIT_REPOSITORY https://github.com/chicchicforkfork/SensorDB.git
-#   GIT_TAG        master
-# )
-# FetchContent_MakeAvailable(json fmt smartdb sensordb)
-FetchContent_MakeAvailable(json fmt smartdb)
+FetchContent_MakeAvailable(json fmt sensordb)
 
 add_compile_options(-W -Wall -g -fpermissive -std=c++14)
 
@@ -30,7 +25,7 @@ add_executable(controller_net main.cpp socketmanager.cpp packet.cpp wlan_provide
 target_include_directories(controller_net
 PUBLIC
     ${LIBSEPOLL_PATH}
-    ${smartdb_INCLUDE_DIRS}
+    ${smartio_INCLUDE_DIRS}
 )
 
 target_link_directories(controller_net
@@ -41,6 +36,6 @@ PUBLIC
 target_link_libraries(controller_net
     pthread
     sepoll
-    smartdb
+    smartio
     fmt
 )
