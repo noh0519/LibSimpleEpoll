@@ -140,8 +140,6 @@ void SocketManager::recvConfigData(Packet p) {
     case SetConfigList::ROGUE_CLIENT:
       setWhiteList(tlv_val, tlv_len, tlv_type);
       break;
-    case SetConfigList::ROGUE_CLIENT_HASH:
-      break;
     case SetConfigList::POLICY:
       setThreatPolicy(tlv_val, tlv_len);
       break;
@@ -160,6 +158,7 @@ void SocketManager::recvConfigData(Packet p) {
     case SetConfigList::EXCEPT_AP_HASH:
     case SetConfigList::EXCEPT_CLIENT_HASH:
     case SetConfigList::ROGUE_AP_HASH:
+    case SetConfigList::ROGUE_CLIENT_HASH:
     case SetConfigList::POLICY_HASH:
     case SetConfigList::BLOCK_HASH:
     case SetConfigList::ADMIN_BLOCK_HASH:
