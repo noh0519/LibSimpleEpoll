@@ -2,6 +2,7 @@
 #include "mac_util.hpp"
 #include "publicmemory.hpp"
 #include "sys/socket.h"
+#include "var_util.hpp"
 #include <fmt/format.h>
 #include <iomanip>
 #include <netinet/in.h>
@@ -170,8 +171,6 @@ void SocketManager::recvConfigData(Packet p) {
       break;
     case SetConfigList::GENERAL_CONFIG:
       break;
-    case SetConfigList::SENSOR_ID:
-      break;
     default:
       break;
     }
@@ -188,34 +187,34 @@ void SocketManager::setWhiteList(uint8_t *data, uint16_t length, SetConfigList s
     mac_str = mac::pointer_to_mac(data + offset);
     switch (setcfg) {
     case SetConfigList::AUTH_AP:
-      PublicMemory::_auth_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_auth_aps["data"]["list"] += mac_str;
       break;
     case SetConfigList::AUTH_CLIENT:
-      PublicMemory::_auth_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_auth_clients["data"]["list"] += mac_str;
       break;
     case SetConfigList::GUEST_AP:
-      PublicMemory::_guest_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_guest_aps["data"]["list"] += mac_str;
       break;
     case SetConfigList::GUEST_CLIENT:
-      PublicMemory::_guest_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_guest_clients["data"]["list"] += mac_str;
       break;
     case SetConfigList::EXTERNAL_AP:
-      PublicMemory::_external_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_external_aps["data"]["list"] += mac_str;
       break;
     case SetConfigList::EXTERNAL_CLIENT:
-      PublicMemory::_external_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_external_clients["data"]["list"] += mac_str;
       break;
     case SetConfigList::EXCEPT_AP:
-      PublicMemory::_except_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_except_aps["data"]["list"] += mac_str;
       break;
     case SetConfigList::EXCEPT_CLIENT:
-      PublicMemory::_except_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_except_clients["data"]["list"] += mac_str;
       break;
     case SetConfigList::ROGUE_AP:
-      PublicMemory::_rogue_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_rogue_aps["data"]["list"] += mac_str;
       break;
     case SetConfigList::ROGUE_CLIENT:
-      PublicMemory::_rogue_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_rogue_clients["data"]["list"] += mac_str;
       break;
     default:
       break;
@@ -264,47 +263,61 @@ void SocketManager::setThreatPolicy(uint8_t *data, uint16_t length) {
   }
 }
 
+void SocketManager::setTimeSync(uint8_t *data, uint16_t length) {}
+
+void SocketManager::setGeneralConfig(uint8_t *data, uint16_t length) {}
+
 void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH:
     PublicMemory::_auth_aps_hash.clear();
     PublicMemory::_auth_aps_hash.insert(PublicMemory::_auth_aps_hash.begin(), data, data + length);
+    PublicMemory::_auth_aps["data"]["hash"] = var::base64_encode(PublicMemory::_auth_aps_hash).c_str();
     break;
   case SetConfigList::AUTH_CLIENT_HASH:
     PublicMemory::_auth_clients_hash.clear();
     PublicMemory::_auth_clients_hash.insert(PublicMemory::_auth_clients_hash.begin(), data, data + length);
+    PublicMemory::_auth_clients["data"]["hash"] = var::base64_encode(PublicMemory::_auth_clients_hash).c_str();
     break;
   case SetConfigList::GUEST_AP_HASH:
-    PublicMemory::_auth_clients_hash.clear();
-    PublicMemory::_auth_clients_hash.insert(PublicMemory::_auth_clients_hash.begin(), data, data + length);
+    PublicMemory::_guest_aps_hash.clear();
+    PublicMemory::_guest_aps_hash.insert(PublicMemory::_guest_aps_hash.begin(), data, data + length);
+    PublicMemory::_guest_aps["data"]["hash"] = var::base64_encode(PublicMemory::_guest_aps_hash).c_str();
     break;
   case SetConfigList::GUEST_CLIENT_HASH:
     PublicMemory::_guest_clients_hash.clear();
     PublicMemory::_guest_clients_hash.insert(PublicMemory::_guest_clients_hash.begin(), data, data + length);
+    PublicMemory::_guest_clients["data"]["hash"] = var::base64_encode(PublicMemory::_guest_clients_hash).c_str();
     break;
   case SetConfigList::EXTERNAL_AP_HASH:
     PublicMemory::_external_aps_hash.clear();
     PublicMemory::_external_aps_hash.insert(PublicMemory::_external_aps_hash.begin(), data, data + length);
+    PublicMemory::_external_aps["data"]["hash"] = var::base64_encode(PublicMemory::_external_aps_hash).c_str();
     break;
   case SetConfigList::EXTERNAL_CLIENT_HASH:
     PublicMemory::_external_clients_hash.clear();
     PublicMemory::_external_clients_hash.insert(PublicMemory::_external_clients_hash.begin(), data, data + length);
+    PublicMemory::_external_clients["data"]["hash"] = var::base64_encode(PublicMemory::_external_clients_hash).c_str();
     break;
   case SetConfigList::EXCEPT_AP_HASH:
     PublicMemory::_except_aps_hash.clear();
     PublicMemory::_except_aps_hash.insert(PublicMemory::_except_aps_hash.begin(), data, data + length);
+    PublicMemory::_except_aps["data"]["hash"] = var::base64_encode(PublicMemory::_except_aps_hash).c_str();
     break;
   case SetConfigList::EXCEPT_CLIENT_HASH:
     PublicMemory::_except_clients_hash.clear();
     PublicMemory::_except_clients_hash.insert(PublicMemory::_except_clients_hash.begin(), data, data + length);
+    PublicMemory::_except_clients["data"]["hash"] = var::base64_encode(PublicMemory::_except_clients_hash).c_str();
     break;
   case SetConfigList::ROGUE_AP_HASH:
     PublicMemory::_rogue_aps_hash.clear();
     PublicMemory::_rogue_aps_hash.insert(PublicMemory::_rogue_aps_hash.begin(), data, data + length);
+    PublicMemory::_rogue_aps["data"]["hash"] = var::base64_encode(PublicMemory::_rogue_aps_hash).c_str();
     break;
   case SetConfigList::ROGUE_CLIENT_HASH:
     PublicMemory::_rogue_clients_hash.clear();
     PublicMemory::_rogue_clients_hash.insert(PublicMemory::_rogue_clients_hash.begin(), data, data + length);
+    PublicMemory::_rogue_clients["data"]["hash"] = var::base64_encode(PublicMemory::_rogue_clients_hash).c_str();
     break;
   case SetConfigList::POLICY_HASH:
     PublicMemory::_threat_policy_hash.clear();

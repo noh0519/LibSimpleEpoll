@@ -53,6 +53,8 @@ private:
 
   void setWhiteList(uint8_t *data, uint16_t length, SetConfigList setcfg);
   void setThreatPolicy(uint8_t *data, uint16_t length);
+  void setTimeSync(uint8_t *data, uint16_t length);
+  void setGeneralConfig(uint8_t *data, uint16_t length);
   void setHash(uint8_t *data, uint16_t length, SetConfigList setcfg);
 
   std::string getThreatPolicyName(uint16_t pol_code);

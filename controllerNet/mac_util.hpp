@@ -1,5 +1,5 @@
-#ifndef _WIPS_STRESS_MAC_UTIL_HPP_
-#define _WIPS_STRESS_MAC_UTIL_HPP_
+#ifndef _MAC_UTIL_HPP_
+#define _MAC_UTIL_HPP_
 
 #include <iomanip>
 #include <string>
@@ -46,4 +46,4 @@ static std::string pointer_to_mac(const uint8_t *ptr) {
 }
 } // namespace mac
 
-#endif /* _WIPS_STRESS_MAC_UTIL_HPP_ */
+#endif /* _MAC_UTIL_HPP_ */
