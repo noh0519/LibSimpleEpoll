@@ -189,34 +189,34 @@ void SocketManager::setWhiteList(uint8_t *data, uint16_t length, SetConfigList s
     mac_str = mac::pointer_to_mac(data + offset);
     switch (setcfg) {
     case SetConfigList::AUTH_AP:
-      PublicMemory::_auth_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_auth_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::AUTH_CLIENT:
-      PublicMemory::_auth_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_auth_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::GUEST_AP:
-      PublicMemory::_guest_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_guest_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::GUEST_CLIENT:
-      PublicMemory::_guest_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_guest_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXTERNAL_AP:
-      PublicMemory::_external_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_external_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXTERNAL_CLIENT:
-      PublicMemory::_external_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_external_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXCEPT_AP:
-      PublicMemory::_except_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_except_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXCEPT_CLIENT:
-      PublicMemory::_except_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_except_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::ROGUE_AP:
-      PublicMemory::_rogue_aps["data"][mac_str.c_str()] = "";
+      PublicMemory::_rogue_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::ROGUE_CLIENT:
-      PublicMemory::_rogue_clients["data"][mac_str.c_str()] = "";
+      PublicMemory::_rogue_clients[mac_str.c_str()] = "";
       break;
     default:
       break;
@@ -261,7 +261,7 @@ void SocketManager::setThreatPolicy(uint8_t *data, uint16_t length) {
     policy["threshold"] = threshold;
 
     std::string pol_name = getThreatPolicyName(pol_code);
-    PublicMemory::_threat_policy["key"][pol_name] = policy;
+    PublicMemory::_threat_policy[pol_name] = policy;
   }
 }
 
