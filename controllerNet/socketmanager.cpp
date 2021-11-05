@@ -1,6 +1,5 @@
 #include "socketmanager.hpp"
 #include "mac_util.hpp"
-#include "publicmemory.hpp"
 #include "sys/socket.h"
 #include "var_util.hpp"
 #include <fmt/format.h>
@@ -189,34 +188,34 @@ void SocketManager::setWhiteList(uint8_t *data, uint16_t length, SetConfigList s
     mac_str = mac::pointer_to_mac(data + offset);
     switch (setcfg) {
     case SetConfigList::AUTH_AP:
-      PublicMemory::_auth_aps[mac_str.c_str()] = "";
+      _auth_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::AUTH_CLIENT:
-      PublicMemory::_auth_clients[mac_str.c_str()] = "";
+      _auth_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::GUEST_AP:
-      PublicMemory::_guest_aps[mac_str.c_str()] = "";
+      _guest_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::GUEST_CLIENT:
-      PublicMemory::_guest_clients[mac_str.c_str()] = "";
+      _guest_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXTERNAL_AP:
-      PublicMemory::_external_aps[mac_str.c_str()] = "";
+      _external_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXTERNAL_CLIENT:
-      PublicMemory::_external_clients[mac_str.c_str()] = "";
+      _external_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXCEPT_AP:
-      PublicMemory::_except_aps[mac_str.c_str()] = "";
+      _except_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::EXCEPT_CLIENT:
-      PublicMemory::_except_clients[mac_str.c_str()] = "";
+      _except_clients[mac_str.c_str()] = "";
       break;
     case SetConfigList::ROGUE_AP:
-      PublicMemory::_rogue_aps[mac_str.c_str()] = "";
+      _rogue_aps[mac_str.c_str()] = "";
       break;
     case SetConfigList::ROGUE_CLIENT:
-      PublicMemory::_rogue_clients[mac_str.c_str()] = "";
+      _rogue_clients[mac_str.c_str()] = "";
       break;
     default:
       break;
@@ -261,7 +260,7 @@ void SocketManager::setThreatPolicy(uint8_t *data, uint16_t length) {
     policy["threshold"] = threshold;
 
     std::string pol_name = getThreatPolicyName(pol_code);
-    PublicMemory::_threat_policy[pol_name] = policy;
+    _threat_policy[pol_name] = policy;
   }
 }
 
@@ -272,60 +271,60 @@ void SocketManager::setGeneralConfig(uint8_t *data, uint16_t length) {}
 void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH:
-    PublicMemory::_auth_aps_hash.clear();
-    PublicMemory::_auth_aps_hash.insert(PublicMemory::_auth_aps_hash.begin(), data, data + length);
+    _auth_aps_hash.clear();
+    _auth_aps_hash.insert(_auth_aps_hash.begin(), data, data + length);
     break;
   case SetConfigList::AUTH_CLIENT_HASH:
-    PublicMemory::_auth_clients_hash.clear();
-    PublicMemory::_auth_clients_hash.insert(PublicMemory::_auth_clients_hash.begin(), data, data + length);
+    _auth_clients_hash.clear();
+    _auth_clients_hash.insert(_auth_clients_hash.begin(), data, data + length);
     break;
   case SetConfigList::GUEST_AP_HASH:
-    PublicMemory::_guest_aps_hash.clear();
-    PublicMemory::_guest_aps_hash.insert(PublicMemory::_guest_aps_hash.begin(), data, data + length);
+    _guest_aps_hash.clear();
+    _guest_aps_hash.insert(_guest_aps_hash.begin(), data, data + length);
     break;
   case SetConfigList::GUEST_CLIENT_HASH:
-    PublicMemory::_guest_clients_hash.clear();
-    PublicMemory::_guest_clients_hash.insert(PublicMemory::_guest_clients_hash.begin(), data, data + length);
+    _guest_clients_hash.clear();
+    _guest_clients_hash.insert(_guest_clients_hash.begin(), data, data + length);
     break;
   case SetConfigList::EXTERNAL_AP_HASH:
-    PublicMemory::_external_aps_hash.clear();
-    PublicMemory::_external_aps_hash.insert(PublicMemory::_external_aps_hash.begin(), data, data + length);
+    _external_aps_hash.clear();
+    _external_aps_hash.insert(_external_aps_hash.begin(), data, data + length);
     break;
   case SetConfigList::EXTERNAL_CLIENT_HASH:
-    PublicMemory::_external_clients_hash.clear();
-    PublicMemory::_external_clients_hash.insert(PublicMemory::_external_clients_hash.begin(), data, data + length);
+    _external_clients_hash.clear();
+    _external_clients_hash.insert(_external_clients_hash.begin(), data, data + length);
     break;
   case SetConfigList::EXCEPT_AP_HASH:
-    PublicMemory::_except_aps_hash.clear();
-    PublicMemory::_except_aps_hash.insert(PublicMemory::_except_aps_hash.begin(), data, data + length);
+    _except_aps_hash.clear();
+    _except_aps_hash.insert(_except_aps_hash.begin(), data, data + length);
     break;
   case SetConfigList::EXCEPT_CLIENT_HASH:
-    PublicMemory::_except_clients_hash.clear();
-    PublicMemory::_except_clients_hash.insert(PublicMemory::_except_clients_hash.begin(), data, data + length);
+    _except_clients_hash.clear();
+    _except_clients_hash.insert(_except_clients_hash.begin(), data, data + length);
     break;
   case SetConfigList::ROGUE_AP_HASH:
-    PublicMemory::_rogue_aps_hash.clear();
-    PublicMemory::_rogue_aps_hash.insert(PublicMemory::_rogue_aps_hash.begin(), data, data + length);
+    _rogue_aps_hash.clear();
+    _rogue_aps_hash.insert(_rogue_aps_hash.begin(), data, data + length);
     break;
   case SetConfigList::ROGUE_CLIENT_HASH:
-    PublicMemory::_rogue_clients_hash.clear();
-    PublicMemory::_rogue_clients_hash.insert(PublicMemory::_rogue_clients_hash.begin(), data, data + length);
+    _rogue_clients_hash.clear();
+    _rogue_clients_hash.insert(_rogue_clients_hash.begin(), data, data + length);
     break;
   case SetConfigList::POLICY_HASH:
-    PublicMemory::_threat_policy_hash.clear();
-    PublicMemory::_threat_policy_hash.insert(PublicMemory::_threat_policy_hash.begin(), data, data + length);
+    _threat_policy_hash.clear();
+    _threat_policy_hash.insert(_threat_policy_hash.begin(), data, data + length);
     break;
   case SetConfigList::BLOCK_HASH:
-    PublicMemory::_block_hash.clear();
-    PublicMemory::_block_hash.insert(PublicMemory::_block_hash.begin(), data, data + length);
+    _block_hash.clear();
+    _block_hash.insert(_block_hash.begin(), data, data + length);
     break;
   case SetConfigList::ADMIN_BLOCK_HASH:
-    PublicMemory::_admin_block_hash.clear();
-    PublicMemory::_admin_block_hash.insert(PublicMemory::_admin_block_hash.begin(), data, data + length);
+    _admin_block_hash.clear();
+    _admin_block_hash.insert(_admin_block_hash.begin(), data, data + length);
     break;
   case SetConfigList::SENSOR_SETTING_HASH:
-    PublicMemory::_sensor_setting_hash.clear();
-    PublicMemory::_sensor_setting_hash.insert(PublicMemory::_sensor_setting_hash.begin(), data, data + length);
+    _sensor_setting_hash.clear();
+    _sensor_setting_hash.insert(_sensor_setting_hash.begin(), data, data + length);
     break;
   default:
     break;
@@ -537,48 +536,48 @@ std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
 void SocketManager::flushConfigData(SetConfigList setcfg) {
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH:
-    // std::cout << PublicMemory::_auth_aps.dump(4) << std::endl;
-    PublicMemory::_auth_aps.clear();
+    // std::cout << _auth_aps.dump(4) << std::endl;
+    _auth_aps.clear();
     break;
   case SetConfigList::AUTH_CLIENT_HASH:
-    PublicMemory::_auth_clients.clear();
+    _auth_clients.clear();
     break;
   case SetConfigList::GUEST_AP_HASH:
-    PublicMemory::_guest_aps.clear();
+    _guest_aps.clear();
     break;
   case SetConfigList::GUEST_CLIENT_HASH:
-    PublicMemory::_guest_clients.clear();
+    _guest_clients.clear();
     break;
   case SetConfigList::EXTERNAL_AP_HASH:
-    PublicMemory::_external_aps.clear();
+    _external_aps.clear();
     break;
   case SetConfigList::EXTERNAL_CLIENT_HASH:
-    PublicMemory::_external_clients.clear();
+    _external_clients.clear();
     break;
   case SetConfigList::EXCEPT_AP_HASH:
-    PublicMemory::_except_aps.clear();
+    _except_aps.clear();
     break;
   case SetConfigList::EXCEPT_CLIENT_HASH:
-    PublicMemory::_except_clients.clear();
+    _except_clients.clear();
     break;
   case SetConfigList::ROGUE_AP_HASH:
-    PublicMemory::_rogue_aps.clear();
+    _rogue_aps.clear();
     break;
   case SetConfigList::ROGUE_CLIENT_HASH:
-    PublicMemory::_rogue_clients.clear();
+    _rogue_clients.clear();
     break;
   case SetConfigList::POLICY_HASH:
-    // std::cout << PublicMemory::_threat_policy.dump(4) << std::endl;
-    PublicMemory::_threat_policy.clear();
+    // std::cout << _threat_policy.dump(4) << std::endl;
+    _threat_policy.clear();
     break;
   case SetConfigList::BLOCK_HASH:
-    PublicMemory::_block.clear();
+    _block.clear();
     break;
   case SetConfigList::ADMIN_BLOCK_HASH:
-    PublicMemory::_admin_block.clear();
+    _admin_block.clear();
     break;
   case SetConfigList::SENSOR_SETTING_HASH:
-    PublicMemory::_sensor_setting.clear();
+    _sensor_setting.clear();
     break;
   default:
     break;

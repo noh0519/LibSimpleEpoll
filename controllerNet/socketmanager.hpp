@@ -26,6 +26,38 @@ private:
   uint8_t _s_auth[16] = {0};
   uint8_t _c_auth[16] = {0};
 
+  /* recv data storage */
+  nlohmann::json _auth_aps;
+  nlohmann::json _auth_clients;
+  nlohmann::json _guest_aps;
+  nlohmann::json _guest_clients;
+  nlohmann::json _external_aps;
+  nlohmann::json _external_clients;
+  nlohmann::json _except_aps;
+  nlohmann::json _except_clients;
+  nlohmann::json _rogue_aps;
+  nlohmann::json _rogue_clients;
+  nlohmann::json _threat_policy;
+  nlohmann::json _block;
+  nlohmann::json _admin_block;
+  nlohmann::json _sensor_setting;
+
+  std::vector<uint8_t> _auth_clients_hash;
+  std::vector<uint8_t> _auth_aps_hash;
+  std::vector<uint8_t> _guest_aps_hash;
+  std::vector<uint8_t> _guest_clients_hash;
+  std::vector<uint8_t> _external_aps_hash;
+  std::vector<uint8_t> _external_clients_hash;
+  std::vector<uint8_t> _except_aps_hash;
+  std::vector<uint8_t> _except_clients_hash;
+  std::vector<uint8_t> _rogue_aps_hash;
+  std::vector<uint8_t> _rogue_clients_hash;
+  std::vector<uint8_t> _threat_policy_hash;
+  std::vector<uint8_t> _block_hash;
+  std::vector<uint8_t> _admin_block_hash;
+  std::vector<uint8_t> _sensor_setting_hash;
+  /* ~recv data storage */
+
   std::list<nlohmann::json> _sessions;
 
 public:
