@@ -24,6 +24,10 @@ void SocketManager::setState(ConnectionState state) { _state = state; }
 
 ConnectionMode SocketManager::getMode() { return _mode; };
 
+void SocketManager::setWlanProvider(std::shared_ptr<WlanProvider> wp) { _wp = wp; }
+
+void SocketManager::setPolCollector(std::shared_ptr<PolCollector> pc) { _pc = pc; }
+
 void SocketManager::loginReadFunc(int fd, short what) {
   if (what & EPOLLIN) {
     auto decrypted = recvData();
@@ -87,11 +91,8 @@ void SocketManager::loginReadFunc(int fd, short what) {
 
 void SocketManager::dataWriteFunc(int fd, short what) {
   if (what | EPOLLOUT) {
-    while (!_sessions.empty()) {
-      auto session = _sessions.front();
-      _sessions.pop_front();
-      sendSessionData(session);
-    }
+    sendHashData();
+    sendSessionData();
   }
 }
 
@@ -329,6 +330,7 @@ void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg
   default:
     break;
   }
+  _wp->sendHash(data, length, setcfg);
 }
 
 std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
@@ -584,6 +586,10 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
   }
 }
 
+void SocketManager::pushHashData(SetConfigList setcfg, std::vector<uint8_t> v) { //
+  _hashs.push_back(std::make_pair(setcfg, v));
+}
+
 void SocketManager::pushSessionData(nlohmann::json sessions) { //
   if (sessions.is_null()) {
     return;
@@ -809,23 +815,46 @@ void SocketManager::sendLoginSuccess() {
   sendData(p);
 }
 
-void SocketManager::sendSessionData(nlohmann::json session) {
-  for (auto a : session) {
-    // send ap
-    AP ap = getAPFromJson(a);
-    sendSessionAPData(ap);
-    // ~send ap
+void SocketManager::sendHashData() {
+  while (!_hashs.empty()) {
+    auto hash = _hashs.front();
+    _hashs.pop_front();
 
-    // send clients
-    auto j_clients = a.value("clients", nlohmann::json());
-    if (j_clients.is_null()) {
-      continue;
+    Packet p;
+
+    p.makeHashSensorID(_sensor_id);
+    p.makeHashData(hash.first, hash.second);
+    p.makeDataResponseBody(DataResponse::SENSOR_HASH);
+    p.makeDataResponseBodyHeader();
+    p.makeHeader(_send_seq++);
+
+    p.encrypt(_sharedkey);
+
+    sendData(p);
+  }
+}
+
+void SocketManager::sendSessionData() {
+  while (!_sessions.empty()) {
+    auto session = _sessions.front();
+    _sessions.pop_front();
+    for (auto a : session) {
+      // send ap
+      AP ap = getAPFromJson(a);
+      sendSessionAPData(ap);
+      // ~send ap
+
+      // send clients
+      auto j_clients = a.value("clients", nlohmann::json());
+      if (j_clients.is_null()) {
+        continue;
+      }
+      for (auto c : j_clients) {
+        Client client = getClientFromJson(c, ap.bssid_, ap.channel_);
+        sendSessionClientData(client);
+      }
+      // ~send clients
     }
-    for (auto c : j_clients) {
-      Client client = getClientFromJson(c, ap.bssid_, ap.channel_);
-      sendSessionClientData(client);
-    }
-    // ~send clients
   }
 }
 

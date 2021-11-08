@@ -320,6 +320,23 @@ void Packet::makeSensorModel(const uint8_t &model) {
   _data.insert(_data.end(), model);
 }
 
+void Packet::makeHashSensorID(const uint32_t &sensor_id) {
+  auto s_id = htonl(sensor_id);
+  auto length = htons(static_cast<uint16_t>(sizeof(sensor_id)));
+
+  _data.insert(_data.end(), static_cast<uint8_t>(SetConfigList::SENSOR_ID));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&s_id), reinterpret_cast<uint8_t *>(&s_id) + sizeof(s_id));
+}
+
+void Packet::makeHashData(SetConfigList setcfg, std::vector<uint8_t> v) { //
+  auto length = htons(static_cast<uint16_t>(v.size()));
+
+  _data.insert(_data.end(), static_cast<uint8_t>(setcfg));
+  _data.insert(_data.end(), reinterpret_cast<uint8_t *>(&length), reinterpret_cast<uint8_t *>(&length) + sizeof(length));
+  _data.insert(_data.end(), v.begin(), v.end());
+}
+
 void Packet::makeAPData(const AP &ap) {
   Packet p;
 
@@ -552,34 +569,48 @@ void Packet::makeHeader(uint16_t send_seq) {
 }
 
 void Packet::print() {
-  HEADER *h = reinterpret_cast<HEADER *>(&_data[0]);
+  HEADER *header = reinterpret_cast<HEADER *>(&_data[0]);
 
   fmt::print("+ HEADER --------------\n");
-  fmt::print("| version: {:02x}\n", (*h).version);
-  fmt::print("| seq    : {:04x}\n", ntohs((*h).seq));
-  fmt::print("| flags  : {:02x} {:02x} {:04x}\n", static_cast<uint8_t>((*h).flags.cipher), static_cast<uint8_t>((*h).flags.fragment),
-             static_cast<uint8_t>((*h).flags.reserved));
-  fmt::print("| offset : {:02x}\n", (*h).offset);
-  fmt::print("| option : {:02x}\n", (*h).option);
-  fmt::print("| nonce  : {:04x}\n", ntohs((*h).nonce));
-  fmt::print("| subtype: {:02x}\n", static_cast<uint8_t>((*h).subtype));
-  fmt::print("| res    : {:02x}\n", (*h).res);
-  fmt::print("| length : {:04x}\n", ntohs((*h).length));
+  fmt::print("| version: {:02x}\n", (*header).version);
+  fmt::print("| seq    : {:04x}\n", ntohs((*header).seq));
+  fmt::print("| flags  : {:02x} {:02x} {:04x}\n", static_cast<uint8_t>((*header).flags.cipher),
+             static_cast<uint8_t>((*header).flags.fragment), static_cast<uint8_t>((*header).flags.reserved));
+  fmt::print("| offset : {:02x}\n", (*header).offset);
+  fmt::print("| option : {:02x}\n", (*header).option);
+  fmt::print("| nonce  : {:04x}\n", ntohs((*header).nonce));
+  fmt::print("| subtype: {:02x}\n", static_cast<uint8_t>((*header).subtype));
+  fmt::print("| res    : {:02x}\n", (*header).res);
+  fmt::print("| length : {:04x}\n", ntohs((*header).length));
 
-  BODYHEADER *b = reinterpret_cast<BODYHEADER *>(&_data[sizeof(*h)]);
+  BODYHEADER *bodyheader = reinterpret_cast<BODYHEADER *>(&_data[sizeof(*header)]);
 
   fmt::print("+ BODYHEADER ----------\n");
-  fmt::print("| type   : {:02x}\n", static_cast<uint8_t>((*b).type));
-  fmt::print("| product: {:02x}\n", static_cast<uint8_t>((*b).product));
-  fmt::print("| length : {:04x}\n", ntohs((*b).length));
-  fmt::print("| res1   : {:02x}\n", (*b).res1);
-  fmt::print("| res2   : {:02x}\n", (*b).res2);
+  fmt::print("| type   : {:02x}\n", static_cast<uint8_t>((*bodyheader).type));
+  fmt::print("| product: {:02x}\n", static_cast<uint8_t>((*bodyheader).product));
+  fmt::print("| length : {:04x}\n", ntohs((*bodyheader).length));
+  fmt::print("| res1   : {:02x}\n", (*bodyheader).res1);
+  fmt::print("| res2   : {:02x}\n", (*bodyheader).res2);
   fmt::print("+----------------------\n");
 
-  TLV *tlv = reinterpret_cast<TLV *>(&_data[sizeof(*h) + sizeof(*b)]);
+  TLV *body = reinterpret_cast<TLV *>(&_data[sizeof(*header) + sizeof(*bodyheader)]);
 
   fmt::print("+ BODY ----------------\n");
-  fmt::print("| type   : {:02x}\n", (*tlv).type);
-  fmt::print("| length : {:04x}\n", ntohs((*tlv).length));
-  fmt::print("+----------------------\n\n");
+  fmt::print("| type   : {:02x}\n", (*body).type);
+  fmt::print("| length : {:04x}\n", ntohs((*body).length));
+  fmt::print("+----------------------\n");
+
+  uint16_t total_len = ntohs((*body).length);
+  uint16_t cur_len = 0;
+  while (cur_len < total_len) {
+    TLV *tlv = reinterpret_cast<TLV *>(&_data[sizeof(*header) + sizeof(*bodyheader) + 3 + cur_len]);
+    fmt::print("+ TLV ----------------\n");
+    fmt::print("| type   : {:02x}\n", (*tlv).type);
+    fmt::print("| length : {:04x}\n", ntohs((*tlv).length));
+    for (int i = 0; i < ntohs((*tlv).length); i++) {
+      fmt::print("{:02x} ", _data[sizeof(*header) + sizeof(*bodyheader) + 3 + cur_len + 3 + i]);
+    }
+    fmt::print("\n+----------------------\n");
+    cur_len += 3 + ntohs((*tlv).length);
+  }
 }

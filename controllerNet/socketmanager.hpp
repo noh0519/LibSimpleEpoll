@@ -4,12 +4,18 @@
 #include "md5.hpp"
 #include "optional.hpp"
 #include "packet.hpp"
+#include "pol_collector.hpp"
+#include "wlan_provider.hpp"
 #include <list>
 #include <nlohmann/json.hpp>
 #include <string>
 #include <sys/epoll.h>
 #include <thread>
+#include <utility>
 #include <vector>
+
+class WlanProvider;
+class PolCollector;
 
 class SocketManager {
 public:
@@ -25,6 +31,9 @@ private:
   uint16_t _send_seq = 0;
   uint8_t _s_auth[16] = {0};
   uint8_t _c_auth[16] = {0};
+
+  std::shared_ptr<WlanProvider> _wp;
+  std::shared_ptr<PolCollector> _pc;
 
   /* recv data storage */
   nlohmann::json _auth_aps;
@@ -58,6 +67,7 @@ private:
   std::vector<uint8_t> _sensor_setting_hash;
   /* ~recv data storage */
 
+  std::list<std::pair<SetConfigList, std::vector<uint8_t>>> _hashs;
   std::list<nlohmann::json> _sessions;
 
 public:
@@ -74,10 +84,14 @@ public:
 
   ConnectionMode getMode();
 
+  void setWlanProvider(std::shared_ptr<WlanProvider> wp);
+  void setPolCollector(std::shared_ptr<PolCollector> pc);
+
   void loginReadFunc(int fd, short what);
   void dataWriteFunc(int fd, short what);
   void configReadFunc(int fd, short what);
 
+  void pushHashData(SetConfigList setcfg, std::vector<uint8_t> v);
   void pushSessionData(nlohmann::json sessions);
 
 private:
@@ -109,7 +123,11 @@ private:
 
   void sendLoginChallenge();
   void sendLoginSuccess();
-  void sendSessionData(nlohmann::json session);
+
+  void sendHashData();
+
+  void sendSessionData();
+
   void sendSessionAPData(AP ap);
   void sendSessionAPsData(std::vector<AP> aps);
   void sendSessionClientData(Client client);

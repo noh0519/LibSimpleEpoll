@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+class SocketManager;
+
 class PolCollector {
 public:
 private:

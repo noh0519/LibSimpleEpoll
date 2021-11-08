@@ -35,6 +35,13 @@ int main(int argc, char **argv) {
   t_pc.detach();
   // ~start threads
 
+  // ref wp, pc
+  sockman1->setWlanProvider(wp);
+  sockman1->setPolCollector(pc);
+  sockman2->setWlanProvider(wp);
+  sockman2->setPolCollector(pc);
+  // ~ref wp, pc
+
   // set SEpoll
   auto lamb_setFunc = [](SocketManager &sockman, int sock) -> void {
     if (sock == -1) {

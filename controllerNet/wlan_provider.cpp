@@ -121,40 +121,58 @@ WlanProvider::WlanProvider() {}
 WlanProvider::~WlanProvider() {}
 
 void WlanProvider::run() {
+  uint32_t loop_cnt = 1;
   while (true) {
-    auto sensor_data = ap_client_data();
-    // std::cout << sensor_data.dump(4) << std::endl;
-    if (sensor_data.is_null()) {
-      fmt::print("sensor db empty\n");
-      continue;
+    // Scheduler Job
+    if (loop_cnt % 5 == 0) {
+      checkSessionData();
     }
-    for (auto a : _sockmans) {
-      a->pushSessionData(sensor_data);
-      _sepoll_ref->setWriteFunc(
-          a->getSock(),
-          [](int fd, short what, void *arg) -> void {
-            static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what);
-          },
-          a.get(), EPOLLOUT | EPOLLONESHOT);
-    }
+    // ~Scheduler Job
 
-    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    loop_cnt++;
+    if (loop_cnt > 400000000) {
+      loop_cnt = 0;
+    }
+    std::this_thread::sleep_for(std::chrono::seconds(1));
   }
 }
 
-void WlanProvider::setSEpollRef(
-    std::shared_ptr<SEpoll<SocketManager>> sepoll_ref) { //
+void WlanProvider::setSEpollRef(std::shared_ptr<SEpoll<SocketManager>> sepoll_ref) { //
   _sepoll_ref = sepoll_ref;
 }
 
-void WlanProvider::setTotalSockMansRef(
-    std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>>
-        total_sockmans_ref) { //
+void WlanProvider::setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> total_sockmans_ref) { //
   _total_sockmans_ref = total_sockmans_ref;
 }
 
 void WlanProvider::setSockMan(std::shared_ptr<SocketManager> sockman) { //
   _sockmans.push_back(sockman);
+}
+
+void WlanProvider::checkSessionData() {
+  auto sensor_data = ap_client_data();
+  // std::cout << sensor_data.dump(4) << std::endl;
+  if (sensor_data.is_null()) {
+    fmt::print("sensor db empty\n");
+    return;
+  }
+  for (auto a : _sockmans) {
+    a->pushSessionData(sensor_data);
+    _sepoll_ref->setWriteFunc(
+        a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
+        EPOLLOUT | EPOLLONESHOT);
+  }
+}
+
+void WlanProvider::sendHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
+  std::vector<uint8_t> v;
+  v.insert(v.begin(), data, data + length);
+  for (auto a : _sockmans) {
+    a->pushHashData(setcfg, v);
+    _sepoll_ref->setWriteFunc(
+        a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
+        EPOLLOUT | EPOLLONESHOT);
+  }
 }
 
 /// sensor_data output example

@@ -92,6 +92,9 @@ public:
   void makeSensorRevision(const uint32_t &rev);
   void makeSensorModel(const uint8_t &model);
 
+  void makeHashSensorID(const uint32_t &sensor_id);
+  void makeHashData(SetConfigList setcfg, std::vector<uint8_t> v);
+
   void makeAPData(const AP &ap);
   void makeClientData(const Client &client);
   void makeAPDataTLV(APData type, uint16_t len, const uint8_t *data);

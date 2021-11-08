@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+class SocketManager;
+
 class WlanProvider {
 public:
 private:
@@ -27,7 +29,11 @@ public:
   void setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> total_sockmans_ref);
   void setSockMan(std::shared_ptr<SocketManager> sockman);
 
+  void sendHash(uint8_t *data, uint16_t length, SetConfigList setcfg);
+
 private:
+  void checkSessionData();
+
 protected:
 };
 
