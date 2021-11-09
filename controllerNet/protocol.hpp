@@ -187,4 +187,8 @@ enum class ConnectionMode : uint8_t {
   CONFIG = 0x02,
 };
 
+enum class SendSignalType : uint8_t {
+  SESSIONS = 0x00,
+};
+
 #endif /* _PROTOCOL_HPP_ */

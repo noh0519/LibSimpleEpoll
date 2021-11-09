@@ -5,8 +5,124 @@
 #include <fmt/format.h>
 #include <iomanip>
 #include <netinet/in.h>
+#include <smart_io.hpp>
 #include <stdio.h>
 #include <string.h>
+
+#if 1                           // Smart IO Function
+template <typename... _String_> //
+static bool check_key(nlohmann::json &j, _String_... args) {
+  for (auto &a : {args...}) {
+    auto v = j.value(a, nlohmann::json());
+    if (v.is_null()) {
+      return false;
+    }
+  }
+  return true;
+}
+
+#if 0
+static void test_check_key() {
+  nlohmann::json j;
+  j["a"] = 1;
+  j["b"] = "2";
+
+  cout << check_key(j, "a") << endl;
+  cout << check_key(j, "b") << endl;
+  cout << check_key(j, "c") << endl;
+  cout << check_key(j, "a", "b") << endl;
+  cout << check_key(j, "a", "b", "c") << endl;
+}
+#endif
+
+/// AP 정보 조회
+static nlohmann::json get_aps() {
+  SmartIO io("get", "ipc:///tmp/ap_get.uds");
+  nlohmann::json aps;
+  aps["1"] = "{}"_json; // 2GHz
+  aps["2"] = "{}"_json; // 5GHz
+
+  auto res = io.getall([&](nlohmann::json &j) { //
+    if (!check_key(j, "band", "bssid")) {
+      assert("missing key: band + bssid");
+      return;
+    }
+    auto band = std::to_string(j["band"].get<uint8_t>());
+    auto bssid = j["bssid"].get<std::string>();
+    aps[band][bssid] = j;
+  });
+  return aps;
+}
+
+/// AP-단말 세션 정보 조회
+static nlohmann::json get_ap_client() {
+  SmartIO io("get", "ipc:///tmp/ap_client_get.uds");
+  nlohmann::json ap_client;
+
+  auto res = io.getall([&](nlohmann::json &j) { //
+    if (!check_key(j, "band", "bssid", "clients")) {
+      assert("missing key: band + bssid + clients");
+      return;
+    }
+    ap_client.push_back(j);
+  });
+  return ap_client;
+}
+
+/// 단말 정보 조회
+static nlohmann::json get_clients() {
+  SmartIO io("get", "ipc:///tmp/client_get.uds");
+  nlohmann::json clients;
+
+  auto res = io.getall([&](nlohmann::json &j) { //
+    if (!check_key(j, "client")) {
+      assert("missing key: client");
+      return;
+    }
+    auto client = j["client"].get<std::string>();
+    clients[client] = j;
+  });
+  return clients;
+}
+
+/// AP-단말 정보 + 세션 정보를 하나의 json으로 취합
+static nlohmann::json ap_client_data() {
+  auto ap_client_db = get_ap_client(); // ap-client session 정보
+  auto ap_db = get_aps();              // ap 정보
+  auto client_db = get_clients();      // 단말 정보
+
+  for (auto &item : ap_client_db.items()) {
+    auto &ac = item.value();
+    auto band = std::to_string(ac["band"].get<uint8_t>());
+    auto bssid = ac["bssid"].get<std::string>();
+    auto &clients = ac["clients"];
+
+    auto ap_info = ap_db[band].value(bssid, nlohmann::json());
+    if (!ap_info.is_null()) {
+      //
+      // AP 정보 업데이트
+      //
+      ac.update(ap_info);
+    }
+    if (!clients.is_null()) {
+      for (auto &item : clients.items()) {
+        auto &client = item.value();
+        auto client_info = client_db.value(client, nlohmann::json());
+        if (!client_info.is_null()) {
+          //
+          // 단말 정보 업데이트
+          //
+          client = client_info;
+        } else {
+          client = nlohmann::json{{"client", client}};
+        }
+      }
+    }
+  }
+
+  return ap_client_db;
+}
+#endif // ~Smart IO Function
 
 SocketManager::SocketManager(const char *sharedkey) { _sharedkey = sharedkey; }
 
@@ -92,7 +208,7 @@ void SocketManager::loginReadFunc(int fd, short what) {
 void SocketManager::dataWriteFunc(int fd, short what) {
   if (what | EPOLLOUT) {
     sendHashData();
-    sendSessionData();
+    checkSendSignalType();
   }
 }
 
@@ -537,10 +653,13 @@ std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
 
 void SocketManager::flushConfigData(SetConfigList setcfg) {
   switch (setcfg) {
-  case SetConfigList::AUTH_AP_HASH:
-    // std::cout << _auth_aps.dump(4) << std::endl;
+  case SetConfigList::AUTH_AP_HASH: {
+    // fmt::print("dump auth aps ({})\n", _sock);
+    std::cout << _auth_aps.dump(4) << std::endl;
+    SmartIO io("set", "ipc:///tmp/device_set.uds");
+    io.set("auth_ap", _auth_aps);
     _auth_aps.clear();
-    break;
+  } break;
   case SetConfigList::AUTH_CLIENT_HASH:
     _auth_clients.clear();
     break;
@@ -587,14 +706,24 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
 }
 
 void SocketManager::pushHashData(SetConfigList setcfg, std::vector<uint8_t> v) { //
+  _hashs.erase(std::remove_if(_hashs.begin(), _hashs.end(),
+                              [setcfg](std::pair<SetConfigList, std::vector<uint8_t>> hash) -> bool {
+                                if (setcfg == hash.first) {
+                                  return true;
+                                } else {
+                                  return false;
+                                }
+                              }),
+               _hashs.end());
+
   _hashs.push_back(std::make_pair(setcfg, v));
 }
 
-void SocketManager::pushSessionData(nlohmann::json sessions) { //
-  if (sessions.is_null()) {
-    return;
+void SocketManager::pushSendSignalType(SendSignalType sst) { //
+  auto search = std::find(_send_signal_types.begin(), _send_signal_types.end(), sst);
+  if (search == _send_signal_types.end()) {
+    _send_signal_types.push_back(sst);
   }
-  _sessions.push_back(sessions);
 }
 
 tl::optional<Packet> SocketManager::recvData() {
@@ -816,9 +945,12 @@ void SocketManager::sendLoginSuccess() {
 }
 
 void SocketManager::sendHashData() {
-  while (!_hashs.empty()) {
-    auto hash = _hashs.front();
-    _hashs.pop_front();
+  std::list<std::pair<SetConfigList, std::vector<uint8_t>>> temp_hashs;
+  temp_hashs.assign(_hashs.begin(), _hashs.end());
+
+  while (!temp_hashs.empty()) {
+    auto hash = temp_hashs.front();
+    temp_hashs.pop_front();
 
     Packet p;
 
@@ -834,28 +966,50 @@ void SocketManager::sendHashData() {
   }
 }
 
-void SocketManager::sendSessionData() {
-  while (!_sessions.empty()) {
-    auto session = _sessions.front();
-    _sessions.pop_front();
-    for (auto a : session) {
-      // send ap
-      AP ap = getAPFromJson(a);
-      sendSessionAPData(ap);
-      // ~send ap
+void SocketManager::checkSendSignalType() {
+  std::list<SendSignalType> temp_send_signal_types;
+  temp_send_signal_types.assign(_send_signal_types.begin(), _send_signal_types.end());
 
-      // send clients
-      auto j_clients = a.value("clients", nlohmann::json());
-      if (j_clients.is_null()) {
-        continue;
-      }
-      for (auto c : j_clients) {
-        Client client = getClientFromJson(c, ap.bssid_, ap.channel_);
-        sendSessionClientData(client);
-      }
-      // ~send clients
+  while (!temp_send_signal_types.empty()) {
+    auto sst = temp_send_signal_types.front();
+    temp_send_signal_types.pop_front();
+    switch (sst) {
+    case SendSignalType::SESSIONS:
+      sendSessionData();
+      break;
+    default:
+      break;
     }
   }
+}
+
+void SocketManager::sendSessionData() {
+  // fmt::print("send session data start ({})\n", _sock);
+  sleep(30);
+  auto sensor_data = ap_client_data();
+  // std::cout << sensor_data.dump(4) << std::endl;
+  if (sensor_data.is_null()) {
+    // fmt::print("send session data empty ({})\n", _sock);
+    return;
+  }
+  for (auto a : sensor_data) {
+    // send ap
+    AP ap = getAPFromJson(a);
+    sendSessionAPData(ap);
+    // ~send ap
+
+    // send clients
+    auto j_clients = a.value("clients", nlohmann::json());
+    if (j_clients.is_null()) {
+      continue;
+    }
+    for (auto c : j_clients) {
+      Client client = getClientFromJson(c, ap.bssid_, ap.channel_);
+      sendSessionClientData(client);
+    }
+    // ~send clients
+  }
+  // fmt::print("send session data end ({})\n", _sock);
 }
 
 void SocketManager::sendSessionAPData(AP ap) {

@@ -7,6 +7,8 @@ PolCollector::PolCollector() {}
 PolCollector::~PolCollector() {}
 
 void PolCollector::run() {
+  pthread_setname_np(pthread_self(), "PolCOllector");
+
   while (true) {
     std::this_thread::sleep_for(std::chrono::milliseconds(1));
   }
@@ -22,7 +24,7 @@ void PolCollector::setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_p
 
 void PolCollector::setSockMan(std::shared_ptr<SocketManager> sockman) { //
   _sockmans.push_back(sockman);
-  _sepoll_ref->setWriteFunc(
+  _sepoll_ref->setReadFunc(
       sockman->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->configReadFunc(fd, what); },
       sockman.get(), EPOLLIN);
 }

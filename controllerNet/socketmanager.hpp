@@ -68,7 +68,7 @@ private:
   /* ~recv data storage */
 
   std::list<std::pair<SetConfigList, std::vector<uint8_t>>> _hashs;
-  std::list<nlohmann::json> _sessions;
+  std::list<SendSignalType> _send_signal_types;
 
 public:
   SocketManager(const char *sharedkey);
@@ -92,7 +92,7 @@ public:
   void configReadFunc(int fd, short what);
 
   void pushHashData(SetConfigList setcfg, std::vector<uint8_t> v);
-  void pushSessionData(nlohmann::json sessions);
+  void pushSendSignalType(SendSignalType sst);
 
 private:
   void recvConfigData(Packet p);
@@ -126,6 +126,7 @@ private:
 
   void sendHashData();
 
+  void checkSendSignalType();
   void sendSessionData();
 
   void sendSessionAPData(AP ap);
