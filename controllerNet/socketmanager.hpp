@@ -80,6 +80,7 @@ public:
 
 private:
   void recvConfigData(Packet p);
+  void checkSendSignalType();
 
   void setWhiteList(uint8_t *data, uint16_t length, SetConfigList setcfg);
   void setThreatPolicy(uint8_t *data, uint16_t length);
@@ -109,8 +110,6 @@ private:
   void sendLoginSuccess();
 
   void sendHashData(std::vector<SendSignalType> signals);
-
-  void checkSendSignalType();
   void sendSessionData();
 
   void sendSessionAPData(AP ap);

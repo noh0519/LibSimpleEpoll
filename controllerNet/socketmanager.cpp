@@ -234,6 +234,8 @@ void SocketManager::configReadFunc(int fd, short what) {
 }
 
 void SocketManager::recvConfigData(Packet p) {
+  fmt::print("receive config data start ({})\n", _sock);
+
   uint16_t pos = sizeof(HEADER) + sizeof(BODYHEADER) + sizeof(TLV);
   size_t total_size = p.size();
 
@@ -260,8 +262,10 @@ void SocketManager::recvConfigData(Packet p) {
       setThreatPolicy(tlv_val, tlv_len);
       break;
     case SetConfigList::BLOCK:
+      // TODO: setBlockList
       break;
     case SetConfigList::ADMIN_BLOCK:
+      // TODO: setAdminBlockList
       break;
     case SetConfigList::SENSOR_SETTING:
       break;
@@ -294,6 +298,8 @@ void SocketManager::recvConfigData(Packet p) {
 
     pos += sizeof(TLV) + tlv_len;
   }
+
+  fmt::print("receive config data end ({})\n", _sock);
 }
 
 void SocketManager::setWhiteList(uint8_t *data, uint16_t length, SetConfigList setcfg) {
@@ -664,45 +670,56 @@ std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
 }
 
 void SocketManager::flushConfigData(SetConfigList setcfg) {
+  SmartIO io_device("set", "ipc:///tmp/device_set.uds");
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH: {
-    // fmt::print("dump auth aps ({})\n", _sock);
+    // fmt::print("flush auth aps ({})\n", _sock);
     // std::cout << _auth_aps.dump(4) << std::endl;
-    SmartIO io("set", "ipc:///tmp/device_set.uds");
-    io.set("auth_ap", _auth_aps);
+    io_device.set("auth_ap", _auth_aps);
     _auth_aps.clear();
   } break;
-  case SetConfigList::AUTH_CLIENT_HASH:
+  case SetConfigList::AUTH_CLIENT_HASH: {
+    io_device.set("auth_client", _auth_clients);
     _auth_clients.clear();
-    break;
-  case SetConfigList::GUEST_AP_HASH:
+  } break;
+  case SetConfigList::GUEST_AP_HASH: {
+    io_device.set("guest_ap", _guest_aps);
     _guest_aps.clear();
-    break;
-  case SetConfigList::GUEST_CLIENT_HASH:
+  } break;
+  case SetConfigList::GUEST_CLIENT_HASH: {
+    io_device.set("guest_client", _guest_clients);
     _guest_clients.clear();
-    break;
-  case SetConfigList::EXTERNAL_AP_HASH:
+  } break;
+  case SetConfigList::EXTERNAL_AP_HASH: {
+    io_device.set("ext_ap", _external_aps);
     _external_aps.clear();
-    break;
-  case SetConfigList::EXTERNAL_CLIENT_HASH:
+  } break;
+  case SetConfigList::EXTERNAL_CLIENT_HASH: {
+    io_device.set("ext_client", _external_clients);
     _external_clients.clear();
-    break;
-  case SetConfigList::EXCEPT_AP_HASH:
+  } break;
+  case SetConfigList::EXCEPT_AP_HASH: {
+    io_device.set("ignore_ap", _except_aps);
     _except_aps.clear();
-    break;
-  case SetConfigList::EXCEPT_CLIENT_HASH:
+  } break;
+  case SetConfigList::EXCEPT_CLIENT_HASH: {
+    io_device.set("ignore_client", _except_clients);
     _except_clients.clear();
-    break;
-  case SetConfigList::ROGUE_AP_HASH:
+  } break;
+  case SetConfigList::ROGUE_AP_HASH: {
+    io_device.set("rogue_ap", _rogue_aps);
     _rogue_aps.clear();
-    break;
-  case SetConfigList::ROGUE_CLIENT_HASH:
+  } break;
+  case SetConfigList::ROGUE_CLIENT_HASH: {
+    io_device.set("rogue_client", _rogue_clients);
     _rogue_clients.clear();
-    break;
-  case SetConfigList::POLICY_HASH:
-    // std::cout << _threat_policy.dump(4) << std::endl;
+  } break;
+  case SetConfigList::POLICY_HASH: {
+    std::cout << _threat_policy.dump(4) << std::endl;
+    SmartIO io_policy("set", "ipc:///tmp/policy_set.uds");
+    io_policy.set(_threat_policy, std::nullptr);
     _threat_policy.clear();
-    break;
+  } break;
   case SetConfigList::BLOCK_HASH:
     _block.clear();
     break;
@@ -986,7 +1003,6 @@ void SocketManager::sendLoginSuccess() {
 }
 
 void SocketManager::sendHashData(std::vector<SendSignalType> signals) {
-  fmt::print("send hash data start\n");
   std::vector<uint8_t> hashv;
   Packet p;
 
@@ -1058,8 +1074,6 @@ void SocketManager::sendHashData(std::vector<SendSignalType> signals) {
   p.encrypt(_sharedkey);
 
   sendData(p);
-
-  fmt::print("send hash data end\n");
 }
 
 void SocketManager::sendSessionData() {

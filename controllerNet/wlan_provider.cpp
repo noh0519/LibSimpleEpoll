@@ -50,6 +50,8 @@ void WlanProvider::checkSendSignalType() {
   if (!_send_signal_types.empty()) {
     std::list<SendSignalType> temp_send_signal_types;
     temp_send_signal_types.assign(_send_signal_types.begin(), _send_signal_types.end());
+    _send_signal_types.clear();
+
     for (auto a : _sockmans) {
       for (auto s : temp_send_signal_types) {
         a->pushSendSignalType(s);
