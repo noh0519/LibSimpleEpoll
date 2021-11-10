@@ -18,6 +18,8 @@ private:
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> _total_sockmans_ref;
   std::vector<std::shared_ptr<SocketManager>> _sockmans;
 
+  std::list<SendSignalType> _send_signal_types;
+
 protected:
 public:
   WlanProvider();
@@ -29,10 +31,10 @@ public:
   void setTotalSockMansRef(std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> total_sockmans_ref);
   void setSockMan(std::shared_ptr<SocketManager> sockman);
 
-  void sendHash(uint8_t *data, uint16_t length, SetConfigList setcfg);
+  void pushSendSignalType(SendSignalType sst);
 
 private:
-  void checkSessionData();
+  void checkSendSignalType();
 
 protected:
 };

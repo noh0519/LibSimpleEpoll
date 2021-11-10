@@ -207,7 +207,6 @@ void SocketManager::loginReadFunc(int fd, short what) {
 
 void SocketManager::dataWriteFunc(int fd, short what) {
   if (what | EPOLLOUT) {
-    sendHashData();
     checkSendSignalType();
   }
 }
@@ -388,65 +387,78 @@ void SocketManager::setGeneralConfig(uint8_t *data, uint16_t length) {}
 void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH:
-    _auth_aps_hash.clear();
-    _auth_aps_hash.insert(_auth_aps_hash.begin(), data, data + length);
+    PublicMemory::_auth_aps_hash->clear();
+    PublicMemory::_auth_aps_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::AUTH_AP_HASH);
     break;
   case SetConfigList::AUTH_CLIENT_HASH:
-    _auth_clients_hash.clear();
-    _auth_clients_hash.insert(_auth_clients_hash.begin(), data, data + length);
+    PublicMemory::_auth_clients_hash->clear();
+    PublicMemory::_auth_clients_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::AUTH_CLIENT_HASH);
     break;
   case SetConfigList::GUEST_AP_HASH:
-    _guest_aps_hash.clear();
-    _guest_aps_hash.insert(_guest_aps_hash.begin(), data, data + length);
+    PublicMemory::_guest_aps_hash->clear();
+    PublicMemory::_guest_aps_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::GUEST_AP_HASH);
     break;
   case SetConfigList::GUEST_CLIENT_HASH:
-    _guest_clients_hash.clear();
-    _guest_clients_hash.insert(_guest_clients_hash.begin(), data, data + length);
+    PublicMemory::_guest_clients_hash->clear();
+    PublicMemory::_guest_clients_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::GUEST_CLIENT_HASH);
     break;
   case SetConfigList::EXTERNAL_AP_HASH:
-    _external_aps_hash.clear();
-    _external_aps_hash.insert(_external_aps_hash.begin(), data, data + length);
+    PublicMemory::_external_aps_hash->clear();
+    PublicMemory::_external_aps_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::EXTERNAL_AP_HASH);
     break;
   case SetConfigList::EXTERNAL_CLIENT_HASH:
-    _external_clients_hash.clear();
-    _external_clients_hash.insert(_external_clients_hash.begin(), data, data + length);
+    PublicMemory::_external_clients_hash->clear();
+    PublicMemory::_external_clients_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::EXTERNAL_CLIENT_HASH);
     break;
   case SetConfigList::EXCEPT_AP_HASH:
-    _except_aps_hash.clear();
-    _except_aps_hash.insert(_except_aps_hash.begin(), data, data + length);
+    PublicMemory::_except_aps_hash->clear();
+    PublicMemory::_except_aps_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::EXCEPT_AP_HASH);
     break;
   case SetConfigList::EXCEPT_CLIENT_HASH:
-    _except_clients_hash.clear();
-    _except_clients_hash.insert(_except_clients_hash.begin(), data, data + length);
+    PublicMemory::_except_clients_hash->clear();
+    PublicMemory::_except_clients_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::EXCEPT_CLIENT_HASH);
     break;
   case SetConfigList::ROGUE_AP_HASH:
-    _rogue_aps_hash.clear();
-    _rogue_aps_hash.insert(_rogue_aps_hash.begin(), data, data + length);
+    PublicMemory::_rogue_aps_hash->clear();
+    PublicMemory::_rogue_aps_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::ROGUE_AP_HASH);
     break;
   case SetConfigList::ROGUE_CLIENT_HASH:
-    _rogue_clients_hash.clear();
-    _rogue_clients_hash.insert(_rogue_clients_hash.begin(), data, data + length);
+    PublicMemory::_rogue_clients_hash->clear();
+    PublicMemory::_rogue_clients_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::ROGUE_CLIENT_HASH);
     break;
   case SetConfigList::POLICY_HASH:
-    _threat_policy_hash.clear();
-    _threat_policy_hash.insert(_threat_policy_hash.begin(), data, data + length);
+    PublicMemory::_threat_policy_hash->clear();
+    PublicMemory::_threat_policy_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::POLICY_HASH);
     break;
   case SetConfigList::BLOCK_HASH:
-    _block_hash.clear();
-    _block_hash.insert(_block_hash.begin(), data, data + length);
+    PublicMemory::_block_hash->clear();
+    PublicMemory::_block_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::BLOCK_HASH);
     break;
   case SetConfigList::ADMIN_BLOCK_HASH:
-    _admin_block_hash.clear();
-    _admin_block_hash.insert(_admin_block_hash.begin(), data, data + length);
+    PublicMemory::_admin_block_hash->clear();
+    PublicMemory::_admin_block_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::ADMIN_BLOCK_HASH);
     break;
   case SetConfigList::SENSOR_SETTING_HASH:
-    _sensor_setting_hash.clear();
-    _sensor_setting_hash.insert(_sensor_setting_hash.begin(), data, data + length);
+    PublicMemory::_sensor_setting_hash->clear();
+    PublicMemory::_sensor_setting_hash->set(std::vector<uint8_t>(data, data + length));
+    _wp->pushSendSignalType(SendSignalType::SENSOR_SETTING_HASH);
     break;
   default:
     break;
   }
-  _wp->sendHash(data, length, setcfg);
 }
 
 std::string SocketManager::getThreatPolicyName(uint16_t pol_code) {
@@ -655,7 +667,7 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
   switch (setcfg) {
   case SetConfigList::AUTH_AP_HASH: {
     // fmt::print("dump auth aps ({})\n", _sock);
-    std::cout << _auth_aps.dump(4) << std::endl;
+    // std::cout << _auth_aps.dump(4) << std::endl;
     SmartIO io("set", "ipc:///tmp/device_set.uds");
     io.set("auth_ap", _auth_aps);
     _auth_aps.clear();
@@ -705,25 +717,54 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
   }
 }
 
-void SocketManager::pushHashData(SetConfigList setcfg, std::vector<uint8_t> v) { //
-  _hashs.erase(std::remove_if(_hashs.begin(), _hashs.end(),
-                              [setcfg](std::pair<SetConfigList, std::vector<uint8_t>> hash) -> bool {
-                                if (setcfg == hash.first) {
-                                  return true;
-                                } else {
-                                  return false;
-                                }
-                              }),
-               _hashs.end());
-
-  _hashs.push_back(std::make_pair(setcfg, v));
-}
-
 void SocketManager::pushSendSignalType(SendSignalType sst) { //
   auto search = std::find(_send_signal_types.begin(), _send_signal_types.end(), sst);
   if (search == _send_signal_types.end()) {
     _send_signal_types.push_back(sst);
   }
+}
+
+void SocketManager::checkSendSignalType() {
+  std::list<SendSignalType> temp_send_signal_types;
+  temp_send_signal_types.assign(_send_signal_types.begin(), _send_signal_types.end());
+  _send_signal_types.clear();
+
+  /* hash signal storage */
+  std::vector<SendSignalType> hash_signal_types;
+
+  while (!temp_send_signal_types.empty()) {
+    auto sst = temp_send_signal_types.front();
+    temp_send_signal_types.pop_front();
+    switch (sst) {
+    case SendSignalType::SESSIONS:
+      sendSessionData();
+      break;
+    case SendSignalType::AUTH_AP_HASH:
+    case SendSignalType::AUTH_CLIENT_HASH:
+    case SendSignalType::GUEST_AP_HASH:
+    case SendSignalType::GUEST_CLIENT_HASH:
+    case SendSignalType::EXTERNAL_AP_HASH:
+    case SendSignalType::EXTERNAL_CLIENT_HASH:
+    case SendSignalType::EXCEPT_AP_HASH:
+    case SendSignalType::EXCEPT_CLIENT_HASH:
+    case SendSignalType::BLOCK_HASH:
+    case SendSignalType::ADMIN_BLOCK_HASH:
+    case SendSignalType::ROGUE_AP_HASH:
+    case SendSignalType::ROGUE_CLIENT_HASH:
+    case SendSignalType::POLICY_HASH:
+    case SendSignalType::SENSOR_SETTING_HASH:
+      hash_signal_types.push_back(sst);
+      break;
+    default:
+      break;
+    }
+  }
+
+  // Send Hash Data
+  if (!hash_signal_types.empty()) {
+    sendHashData(hash_signal_types);
+  }
+  // ~Send Hash Data
 }
 
 tl::optional<Packet> SocketManager::recvData() {
@@ -944,52 +985,89 @@ void SocketManager::sendLoginSuccess() {
   sendData(p);
 }
 
-void SocketManager::sendHashData() {
-  std::list<std::pair<SetConfigList, std::vector<uint8_t>>> temp_hashs;
-  temp_hashs.assign(_hashs.begin(), _hashs.end());
+void SocketManager::sendHashData(std::vector<SendSignalType> signals) {
+  fmt::print("send hash data start\n");
+  std::vector<uint8_t> hashv;
+  Packet p;
 
-  while (!temp_hashs.empty()) {
-    auto hash = temp_hashs.front();
-    temp_hashs.pop_front();
-
-    Packet p;
-
-    p.makeHashSensorID(_sensor_id);
-    p.makeHashData(hash.first, hash.second);
-    p.makeDataResponseBody(DataResponse::SENSOR_HASH);
-    p.makeDataResponseBodyHeader();
-    p.makeHeader(_send_seq++);
-
-    p.encrypt(_sharedkey);
-
-    sendData(p);
-  }
-}
-
-void SocketManager::checkSendSignalType() {
-  std::list<SendSignalType> temp_send_signal_types;
-  temp_send_signal_types.assign(_send_signal_types.begin(), _send_signal_types.end());
-
-  while (!temp_send_signal_types.empty()) {
-    auto sst = temp_send_signal_types.front();
-    temp_send_signal_types.pop_front();
-    switch (sst) {
-    case SendSignalType::SESSIONS:
-      sendSessionData();
-      break;
-    default:
-      break;
+  p.makeHashSensorID(_sensor_id);
+  for (auto signal : signals) {
+    switch (signal) {
+    case SendSignalType::AUTH_AP_HASH: {
+      hashv = PublicMemory::_auth_aps_hash->getToVector();
+      p.makeHashData(SetConfigList::AUTH_AP_HASH, hashv);
+    } break;
+    case SendSignalType::AUTH_CLIENT_HASH: {
+      hashv = PublicMemory::_auth_clients_hash->getToVector();
+      p.makeHashData(SetConfigList::AUTH_CLIENT_HASH, hashv);
+    } break;
+    case SendSignalType::GUEST_AP_HASH: {
+      hashv = PublicMemory::_guest_aps_hash->getToVector();
+      p.makeHashData(SetConfigList::GUEST_AP_HASH, hashv);
+    } break;
+    case SendSignalType::GUEST_CLIENT_HASH: {
+      hashv = PublicMemory::_guest_clients_hash->getToVector();
+      p.makeHashData(SetConfigList::GUEST_CLIENT_HASH, hashv);
+    } break;
+    case SendSignalType::EXTERNAL_AP_HASH: {
+      hashv = PublicMemory::_external_aps_hash->getToVector();
+      p.makeHashData(SetConfigList::EXTERNAL_AP_HASH, hashv);
+    } break;
+    case SendSignalType::EXTERNAL_CLIENT_HASH: {
+      hashv = PublicMemory::_external_clients_hash->getToVector();
+      p.makeHashData(SetConfigList::EXTERNAL_CLIENT_HASH, hashv);
+    } break;
+    case SendSignalType::EXCEPT_AP_HASH: {
+      hashv = PublicMemory::_except_aps_hash->getToVector();
+      p.makeHashData(SetConfigList::EXCEPT_AP_HASH, hashv);
+    } break;
+    case SendSignalType::EXCEPT_CLIENT_HASH: {
+      hashv = PublicMemory::_except_clients_hash->getToVector();
+      p.makeHashData(SetConfigList::EXCEPT_CLIENT_HASH, hashv);
+    } break;
+    case SendSignalType::BLOCK_HASH: {
+      hashv = PublicMemory::_block_hash->getToVector();
+      p.makeHashData(SetConfigList::BLOCK_HASH, hashv);
+    } break;
+    case SendSignalType::ADMIN_BLOCK_HASH: {
+      hashv = PublicMemory::_admin_block_hash->getToVector();
+      p.makeHashData(SetConfigList::ADMIN_BLOCK_HASH, hashv);
+    } break;
+    case SendSignalType::ROGUE_AP_HASH: {
+      hashv = PublicMemory::_rogue_aps_hash->getToVector();
+      p.makeHashData(SetConfigList::ROGUE_AP_HASH, hashv);
+    } break;
+    case SendSignalType::ROGUE_CLIENT_HASH: {
+      hashv = PublicMemory::_rogue_clients_hash->getToVector();
+      p.makeHashData(SetConfigList::ROGUE_CLIENT_HASH, hashv);
+    } break;
+    case SendSignalType::POLICY_HASH: {
+      hashv = PublicMemory::_threat_policy_hash->getToVector();
+      p.makeHashData(SetConfigList::POLICY_HASH, hashv);
+    } break;
+    case SendSignalType::SENSOR_SETTING_HASH: {
+      hashv = PublicMemory::_sensor_setting_hash->getToVector();
+      p.makeHashData(SetConfigList::SENSOR_SETTING_HASH, hashv);
+    } break;
     }
   }
+  p.makeDataResponseBody(DataResponse::SENSOR_HASH);
+  p.makeDataResponseBodyHeader();
+  p.makeHeader(_send_seq++);
+
+  p.encrypt(_sharedkey);
+
+  sendData(p);
+
+  fmt::print("send hash data end\n");
 }
 
 void SocketManager::sendSessionData() {
-  // fmt::print("send session data start ({})\n", _sock);
-  sleep(30);
+  fmt::print("send session data start ({})\n", _sock);
   auto sensor_data = ap_client_data();
   // std::cout << sensor_data.dump(4) << std::endl;
   if (sensor_data.is_null()) {
-    // fmt::print("send session data empty ({})\n", _sock);
+    fmt::print("send session data empty ({})\n", _sock);
     return;
   }
   for (auto a : sensor_data) {
@@ -1009,7 +1087,7 @@ void SocketManager::sendSessionData() {
     }
     // ~send clients
   }
-  // fmt::print("send session data end ({})\n", _sock);
+  fmt::print("send session data end ({})\n", _sock);
 }
 
 void SocketManager::sendSessionAPData(AP ap) {

@@ -189,6 +189,20 @@ enum class ConnectionMode : uint8_t {
 
 enum class SendSignalType : uint8_t {
   SESSIONS = 0x00,
+  AUTH_AP_HASH = 0x81,
+  AUTH_CLIENT_HASH = 0x82,
+  GUEST_AP_HASH = 0x83,
+  GUEST_CLIENT_HASH = 0x84,
+  EXTERNAL_AP_HASH = 0x85,
+  EXTERNAL_CLIENT_HASH = 0x86,
+  EXCEPT_AP_HASH = 0x87,
+  EXCEPT_CLIENT_HASH = 0x88,
+  BLOCK_HASH = 0x89,
+  ADMIN_BLOCK_HASH = 0x8A,
+  ROGUE_AP_HASH = 0x8B,
+  ROGUE_CLIENT_HASH = 0x8C,
+  POLICY_HASH = 0x90,
+  SENSOR_SETTING_HASH = 0x91,
 };
 
 #endif /* _PROTOCOL_HPP_ */

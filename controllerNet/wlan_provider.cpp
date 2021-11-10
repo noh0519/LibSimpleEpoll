@@ -13,9 +13,11 @@ void WlanProvider::run() {
   while (true) {
     // Scheduler Job
     if (loop_cnt % 5 == 0) {
-      checkSessionData();
+      pushSendSignalType(SendSignalType::SESSIONS);
     }
     // ~Scheduler Job
+
+    checkSendSignalType();
 
     loop_cnt++;
     if (loop_cnt > 400000000) {
@@ -37,23 +39,25 @@ void WlanProvider::setSockMan(std::shared_ptr<SocketManager> sockman) { //
   _sockmans.push_back(sockman);
 }
 
-void WlanProvider::checkSessionData() {
-  for (auto a : _sockmans) {
-    a->pushSendSignalType(SendSignalType::SESSIONS);
-    _sepoll_ref->setWriteFunc(
-        a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
-        EPOLLOUT | EPOLLONESHOT);
+void WlanProvider::pushSendSignalType(SendSignalType sst) { //
+  auto search = std::find(_send_signal_types.begin(), _send_signal_types.end(), sst);
+  if (search == _send_signal_types.end()) {
+    _send_signal_types.push_back(sst);
   }
 }
 
-void WlanProvider::sendHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
-  std::vector<uint8_t> v;
-  v.insert(v.begin(), data, data + length);
-  for (auto a : _sockmans) {
-    a->pushHashData(setcfg, v);
-    _sepoll_ref->setWriteFunc(
-        a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
-        EPOLLOUT | EPOLLONESHOT);
+void WlanProvider::checkSendSignalType() {
+  if (!_send_signal_types.empty()) {
+    std::list<SendSignalType> temp_send_signal_types;
+    temp_send_signal_types.assign(_send_signal_types.begin(), _send_signal_types.end());
+    for (auto a : _sockmans) {
+      for (auto s : temp_send_signal_types) {
+        a->pushSendSignalType(s);
+      }
+      _sepoll_ref->setWriteFunc(
+          a->getSock(), [](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->dataWriteFunc(fd, what); }, a.get(),
+          EPOLLOUT | EPOLLONESHOT);
+    }
   }
 }
 

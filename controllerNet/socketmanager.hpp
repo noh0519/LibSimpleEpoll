@@ -5,6 +5,7 @@
 #include "optional.hpp"
 #include "packet.hpp"
 #include "pol_collector.hpp"
+#include "publicmemory.hpp"
 #include "wlan_provider.hpp"
 #include <list>
 #include <nlohmann/json.hpp>
@@ -50,24 +51,8 @@ private:
   nlohmann::json _block;
   nlohmann::json _admin_block;
   nlohmann::json _sensor_setting;
-
-  std::vector<uint8_t> _auth_clients_hash;
-  std::vector<uint8_t> _auth_aps_hash;
-  std::vector<uint8_t> _guest_aps_hash;
-  std::vector<uint8_t> _guest_clients_hash;
-  std::vector<uint8_t> _external_aps_hash;
-  std::vector<uint8_t> _external_clients_hash;
-  std::vector<uint8_t> _except_aps_hash;
-  std::vector<uint8_t> _except_clients_hash;
-  std::vector<uint8_t> _rogue_aps_hash;
-  std::vector<uint8_t> _rogue_clients_hash;
-  std::vector<uint8_t> _threat_policy_hash;
-  std::vector<uint8_t> _block_hash;
-  std::vector<uint8_t> _admin_block_hash;
-  std::vector<uint8_t> _sensor_setting_hash;
   /* ~recv data storage */
 
-  std::list<std::pair<SetConfigList, std::vector<uint8_t>>> _hashs;
   std::list<SendSignalType> _send_signal_types;
 
 public:
@@ -91,7 +76,6 @@ public:
   void dataWriteFunc(int fd, short what);
   void configReadFunc(int fd, short what);
 
-  void pushHashData(SetConfigList setcfg, std::vector<uint8_t> v);
   void pushSendSignalType(SendSignalType sst);
 
 private:
@@ -124,7 +108,7 @@ private:
   void sendLoginChallenge();
   void sendLoginSuccess();
 
-  void sendHashData();
+  void sendHashData(std::vector<SendSignalType> signals);
 
   void checkSendSignalType();
   void sendSessionData();
