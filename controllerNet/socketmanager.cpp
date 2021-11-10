@@ -717,7 +717,7 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
   case SetConfigList::POLICY_HASH: {
     std::cout << _threat_policy.dump(4) << std::endl;
     SmartIO io_policy("set", "ipc:///tmp/policy_set.uds");
-    io_policy.set(_threat_policy, std::nullptr);
+    io_policy.set(_threat_policy, nlohmann::json({}));
     _threat_policy.clear();
   } break;
   case SetConfigList::BLOCK_HASH:
