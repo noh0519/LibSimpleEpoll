@@ -55,62 +55,62 @@ public:
   }
 
   void orEvent(uint32_t what) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_what);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_what);
     m_what |= what;
   }
 
   void setEvent(uint32_t what) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_what);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_what);
     m_what = what;
   }
 
   uint32_t getEvent() {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_what);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_what);
     return m_what;
   }
 
   void setReadFunc(std::function<void(int fd, short what, void *arg)> read_func, void *arg = NULL, uint32_t what = EPOLLIN) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_read);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     m_read_func = read_func;
     m_read_arg = arg;
     m_read_what = what;
     m_read_what |= EPOLLRDHUP | EPOLLHUP | EPOLLERR; // necessary event
   }
   void unsetReadFunc() {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_read);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     m_read_func = NULL;
     m_read_arg = NULL;
     m_read_what = 0;
   };
   bool isReadWhat(uint32_t what) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_read);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     return what & m_read_what ? true : false;
   }
   void executeReadFunc(short what) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_read);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     if (m_read_func) {
       m_read_func(m_fd, what, m_read_arg);
     }
   }
 
   void setWriteFunc(std::function<void(int fd, short what, void *arg)> write_func, void *arg = NULL, uint32_t what = EPOLLOUT) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_write);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     m_write_func = write_func;
     m_write_arg = arg;
     m_write_what = what;
   }
   void unsetWriteFunc() {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_write);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     m_write_func = NULL;
     m_write_arg = NULL;
     m_write_what = 0;
   };
   bool isWriteWhat(uint32_t what) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_write);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     return what & m_write_what ? true : false;
   }
   void executeWriteFunc(short what) {
-    // std::lock_guard<std::recursive_mutex> g(m_mutex_write);
+    std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     if (m_write_func) {
       m_write_func(m_fd, what, m_write_arg);
     }
