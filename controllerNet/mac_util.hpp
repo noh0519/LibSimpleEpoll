@@ -13,7 +13,7 @@ static uint64_t string_to_mac(const std::string &mac_str) {
   unsigned char a[6];
   int last = -1;
   int rc = sscanf(mac_str.c_str(), "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx%n", a + 0, a + 1, a + 2, a + 3, a + 4, a + 5, &last);
-  if (rc != 6 || mac_str.size() != last)
+  if (rc != 6 || mac_str.size() != (size_t)last)
     throw std::runtime_error("invalid mac address format " + mac_str);
   return uint64_t(a[0]) << 40 | uint64_t(a[1]) << 32 | (uint32_t(a[2]) << 24 | uint32_t(a[3]) << 16 | uint32_t(a[4]) << 8 | uint32_t(a[5]));
 }

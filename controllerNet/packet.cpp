@@ -145,7 +145,6 @@ void Packet::encrypt(const std::string &shared_key) {
   int32_t enc_data_len = getHeaderLength();
   srand(time(nullptr));
   uint16_t nonce = (uint16_t)rand();
-  unsigned char rk[16 * 17] = {0}; // 라운드키
 
   uint8_t secret_key[128] = {0}; // 암호화 key
   int32_t secret_key_len = 0;

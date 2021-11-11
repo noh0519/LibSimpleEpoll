@@ -145,6 +145,8 @@ void SocketManager::setWlanProvider(std::shared_ptr<WlanProvider> wp) { _wp = wp
 void SocketManager::setPolCollector(std::shared_ptr<PolCollector> pc) { _pc = pc; }
 
 void SocketManager::loginReadFunc(int fd, short what) {
+  fd = fd;
+
   if (what & EPOLLIN) {
     auto decrypted = recvData();
 
@@ -206,12 +208,16 @@ void SocketManager::loginReadFunc(int fd, short what) {
 }
 
 void SocketManager::dataWriteFunc(int fd, short what) {
+  fd = fd;
+
   if (what | EPOLLOUT) {
     checkSendSignalType();
   }
 }
 
 void SocketManager::configReadFunc(int fd, short what) {
+  fd = fd;
+
   if (what | EPOLLIN) {
     auto recvpacket = recvData();
     if (!recvpacket) {
@@ -408,9 +414,15 @@ void SocketManager::setBlockList(uint8_t *data, uint16_t length) {
   }
 }
 
-void SocketManager::setTimeSync(uint8_t *data, uint16_t length) {}
+void SocketManager::setTimeSync(uint8_t *data, uint16_t length) {
+  data = data;
+  length = length;
+}
 
-void SocketManager::setGeneralConfig(uint8_t *data, uint16_t length) {}
+void SocketManager::setGeneralConfig(uint8_t *data, uint16_t length) {
+  data = data;
+  length = length;
+}
 
 void SocketManager::setHash(uint8_t *data, uint16_t length, SetConfigList setcfg) {
   switch (setcfg) {
@@ -913,6 +925,7 @@ void SocketManager::calcSensorAuthCode(const uint32_t &nonce) {
 }
 
 bool SocketManager::verifyPacket(Packet p) {
+  p = p;
 #if 0
   // debug log
   auto verifySeq = [&recv_seq = recv_seq_, this](Packet p) {
@@ -1090,6 +1103,8 @@ void SocketManager::sendHashData(std::vector<SendSignalType> signals) {
       hashv = PublicMemory::_sensor_setting_hash->getToVector();
       p.makeHashData(SetConfigList::SENSOR_SETTING_HASH, hashv);
     } break;
+    default:
+      break;
     }
   }
   p.makeDataResponseBody(DataResponse::SENSOR_HASH);
