@@ -37,20 +37,20 @@ private:
   std::shared_ptr<PolCollector> _pc;
 
   /* recv data storage */
-  nlohmann::json _auth_aps;
-  nlohmann::json _auth_clients;
-  nlohmann::json _guest_aps;
-  nlohmann::json _guest_clients;
-  nlohmann::json _external_aps;
-  nlohmann::json _external_clients;
-  nlohmann::json _except_aps;
-  nlohmann::json _except_clients;
-  nlohmann::json _rogue_aps;
-  nlohmann::json _rogue_clients;
-  nlohmann::json _threat_policy;
-  nlohmann::json _block;
-  nlohmann::json _admin_block;
-  nlohmann::json _sensor_setting;
+  nlohmann::json _auth_aps = nlohmann::json({});
+  nlohmann::json _auth_clients = nlohmann::json({});
+  nlohmann::json _guest_aps = nlohmann::json({});
+  nlohmann::json _guest_clients = nlohmann::json({});
+  nlohmann::json _external_aps = nlohmann::json({});
+  nlohmann::json _external_clients = nlohmann::json({});
+  nlohmann::json _except_aps = nlohmann::json({});
+  nlohmann::json _except_clients = nlohmann::json({});
+  nlohmann::json _rogue_aps = nlohmann::json({});
+  nlohmann::json _rogue_clients = nlohmann::json({});
+  nlohmann::json _threat_policy = nlohmann::json({});
+  nlohmann::json _blocks = nlohmann::json({});
+  nlohmann::json _admin_blocks = nlohmann::json({});
+  nlohmann::json _sensor_setting = nlohmann::json({});
   /* ~recv data storage */
 
   std::list<SendSignalType> _send_signal_types;
@@ -84,6 +84,7 @@ private:
 
   void setWhiteList(uint8_t *data, uint16_t length, SetConfigList setcfg);
   void setThreatPolicy(uint8_t *data, uint16_t length);
+  void setBlockList(uint8_t *data, uint16_t length);
   void setTimeSync(uint8_t *data, uint16_t length);
   void setGeneralConfig(uint8_t *data, uint16_t length);
   void setHash(uint8_t *data, uint16_t length, SetConfigList setcfg);

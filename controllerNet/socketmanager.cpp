@@ -262,7 +262,7 @@ void SocketManager::recvConfigData(Packet p) {
       setThreatPolicy(tlv_val, tlv_len);
       break;
     case SetConfigList::BLOCK:
-      // TODO: setBlockList
+      setBlockList(tlv_val, tlv_len);
       break;
     case SetConfigList::ADMIN_BLOCK:
       // TODO: setAdminBlockList
@@ -383,6 +383,28 @@ void SocketManager::setThreatPolicy(uint8_t *data, uint16_t length) {
 
     std::string pol_name = getThreatPolicyName(pol_code);
     _threat_policy[pol_name] = policy;
+  }
+}
+
+void SocketManager::setBlockList(uint8_t *data, uint16_t length) {
+  uint16_t offset = 0;
+
+  while (offset < length) {
+    uint8_t band = 0;
+    memcpy(&band, data + offset, sizeof(uint8_t));
+    offset += sizeof(uint8_t);
+
+    std::string bssid_str = mac::pointer_to_mac(data + offset);
+    offset += 6;
+
+    std::string cli_mac_str = mac::pointer_to_mac(data + offset);
+    offset += 6;
+
+    uint16_t pol_code = 0;
+    memcpy(&pol_code, data + offset, sizeof(uint16_t));
+    offset += sizeof(uint16_t);
+
+    _blocks[fmt::format("{},{},{},{}", band, bssid_str, cli_mac_str, pol_code)] = "";
   }
 }
 
@@ -717,15 +739,17 @@ void SocketManager::flushConfigData(SetConfigList setcfg) {
   case SetConfigList::POLICY_HASH: {
     // std::cout << _threat_policy.dump(4) << std::endl;
     SmartIO io_policy("set", "ipc:///tmp/policy_set.uds");
-    // io_policy.set(_threat_policy, nlohmann::json({}));
     io_policy.set(_threat_policy);
     _threat_policy.clear();
   } break;
-  case SetConfigList::BLOCK_HASH:
-    _block.clear();
-    break;
+  case SetConfigList::BLOCK_HASH: {
+    // std::cout << _blocks.dump(4) << std::endl;
+    SmartIO io_blocks("set", "ipc:///tmp/block_set.uds");
+    io_blocks.set(_blocks);
+    _blocks.clear();
+  } break;
   case SetConfigList::ADMIN_BLOCK_HASH:
-    _admin_block.clear();
+    _admin_blocks.clear();
     break;
   case SetConfigList::SENSOR_SETTING_HASH:
     _sensor_setting.clear();
@@ -1199,12 +1223,12 @@ AP SocketManager::getAPFromJson(nlohmann::json j) {
   ap.pmf_ = static_cast<bool>(j.value("pmf", false));
   ap.media_ = 1;
   ap.net_type_ = 1;
-  ap.signature_[32] = {0};
+  memset(ap.signature_, 0x00, 32);
   ap.mgnt_count_ = 0;
   ap.ctrl_count_ = 0;
   ap.data_count_ = 0;
   ap.wds_peer_ = 0;
-  ap.support_rate_[16] = {0};
+  memset(ap.support_rate_, 0x00, 16);
   ap.mcs_ = 0;
   ap.support_mimo_ = 0;
   ap.highest_rate_ = 0;
@@ -1221,12 +1245,12 @@ Client SocketManager::getClientFromJson(nlohmann::json j, uint64_t bssid, uint8_
   client.rssi_ = static_cast<int8_t>(j.value("rssi", -90));
   client.bssid_ = bssid;
   client.channel_ = channel;
-  client.eap_id_[64] = {0};
+  memset(client.eap_id_, 0x00, 64);
   client.data_rate_ = 0;
   client.noise_ = -90;
   client.mimo_ = 0;
-  client.signature_[32] = {0};
-  client.signature5_[32] = {0};
+  memset(client.signature_, 0x00, 32);
+  memset(client.signature5_, 0x00, 32);
   client.data_size_ = 0;
   client.mgnt_count_ = 0;
   client.ctrl_count_ = 0;
