@@ -254,7 +254,7 @@ private:
   SEPOLL_RESULT initAccept() {
     m_sock_fd = socket(PF_INET, SOCK_STREAM, 0);
     if (m_sock_fd == -1) {
-      printf("socket 생성 실패\n");
+      printf("socket create fail\n");
       return SEPOLL_RESULT::FAIL;
     }
 
@@ -267,18 +267,18 @@ private:
     m_sock_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 
     if (bind(m_sock_fd, (struct sockaddr *)&m_sock_addr, sizeof(m_sock_addr)) == -1) {
-      printf("bind 실패\n");
+      printf("bind fail\n");
       return SEPOLL_RESULT::FAIL;
     }
 
     if (listen(m_sock_fd, 5) == -1) {
-      printf("listen 모드 설정 실패\n");
+      printf("listen fail\n");
       return SEPOLL_RESULT::FAIL;
     }
 
     /* epoll create */
     if ((m_epoll_fd = epoll_create1(0)) == -1) {
-      printf("server epoll 생성 실패\n");
+      printf("server epoll create fail\n");
       return SEPOLL_RESULT::FAIL;
     }
 
@@ -310,7 +310,7 @@ private:
     int event_count = epoll_wait(m_epoll_fd, m_events, m_epoll_size, -1);
 
     if (event_count == -1) {
-      printf("실패\n");
+      printf("epoll wait fail\n");
     }
 
     for (int i = 0; i < event_count; i++) {
