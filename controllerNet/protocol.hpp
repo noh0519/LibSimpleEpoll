@@ -181,6 +181,11 @@ enum class SensorStatusDataValue : uint8_t {
   SENSOR_LOG = 0x1a,
 };
 
+enum class ConnectionType : uint8_t {
+  ACCEPT = 0x00,
+  CONNECT = 0x01,
+};
+
 enum class ConnectionMode : uint8_t {
   UNKNOWN = 0x00,
   DATA = 0x01,

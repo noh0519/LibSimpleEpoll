@@ -124,7 +124,10 @@ static nlohmann::json ap_client_data() {
 }
 #endif // ~Smart IO Function
 
-SocketManager::SocketManager(const char *sharedkey) { _sharedkey = sharedkey; }
+SocketManager::SocketManager(ConnectionType type, const char *sharedkey) {
+  _type = type;
+  _sharedkey = sharedkey;
+}
 
 SocketManager::~SocketManager() {}
 
@@ -154,7 +157,6 @@ void SocketManager::loginReadFunc(int fd, short what) {
       // TODO: 연결 끊김 처리
       return;
     }
-
     if (_state == ConnectionState::VERIFY_MAC) {
       auto nonce = (*decrypted).getNonce();
       if (nonce) {
@@ -203,6 +205,20 @@ void SocketManager::loginReadFunc(int fd, short what) {
       } else if (_mode == ConnectionMode::CONFIG) {
         _state = ConnectionState::SET_CONFIG;
       }
+    }
+  }
+}
+
+void SocketManager::loginWriteFunc(int fd, short what) {
+  fd = fd;
+
+  if (what | EPOLLOUT) {
+    if (_type == ConnectionType::CONNECT) {
+      // Send MAC
+      fmt::print("start send mac ({})\n", _sock);
+      _mac = mac::get_interface_mac("eth0");
+      sendMac();
+      fmt::print("end send mac ({})\n", _sock);
     }
   }
 }
@@ -1038,6 +1054,17 @@ void SocketManager::sendLoginSuccess() {
   p.encrypt(_sharedkey);
 
   sendData(p);
+}
+
+void SocketManager::sendMac() {
+  unsigned char send_buf[6] = {0};
+  send_buf[0] = _mac >> 5 * 8;
+  send_buf[1] = _mac >> 4 * 8;
+  send_buf[2] = _mac >> 3 * 8;
+  send_buf[3] = _mac >> 2 * 8;
+  send_buf[4] = _mac >> 1 * 8;
+  send_buf[5] = _mac >> 0 * 8;
+  send(_sock, send_buf, 6, 0);
 }
 
 void SocketManager::sendHashData(std::vector<SendSignalType> signals) {

@@ -24,8 +24,11 @@ private:
   int _sock = -1;
 
   uint32_t _sensor_id = 0;
+  uint64_t _mac = 0;
+
   std::string _sharedkey = "";
   ConnectionState _state = ConnectionState::INIT;
+  ConnectionType _type = ConnectionType::ACCEPT;
   ConnectionMode _mode = ConnectionMode::UNKNOWN;
 
   uint16_t _recv_seq = 0;
@@ -56,7 +59,7 @@ private:
   std::list<SendSignalType> _send_signal_types;
 
 public:
-  SocketManager(const char *sharedkey);
+  SocketManager(ConnectionType type, const char *sharedkey);
   ~SocketManager();
 
   bool isConnected();
@@ -73,6 +76,7 @@ public:
   void setPolCollector(std::shared_ptr<PolCollector> pc);
 
   void loginReadFunc(int fd, short what);
+  void loginWriteFunc(int fd, short what);
   void dataWriteFunc(int fd, short what);
   void configReadFunc(int fd, short what);
 
@@ -109,6 +113,8 @@ private:
 
   void sendLoginChallenge();
   void sendLoginSuccess();
+
+  void sendMac();
 
   void sendHashData(std::vector<SendSignalType> signals);
   void sendSessionData();

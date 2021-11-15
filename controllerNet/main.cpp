@@ -18,11 +18,17 @@ int main(int argc, char **argv) {
   std::cout << sensor_data.dump(4) << std::endl;
 #endif
 #if 1
+  SEPOLL_TYPE type = SEPOLL_TYPE::CONNECT;
+  std::string ip = "192.168.246.35";
+  uint16_t port = 19895;
+  std::string sharedkey = "Secui00@!";
+  ConnectionType sockmantype = type == SEPOLL_TYPE::ACCEPT ? ConnectionType::ACCEPT : ConnectionType::CONNECT;
+
   // set sensor vector
   std::shared_ptr<std::vector<std::shared_ptr<SocketManager>>> sockmans = std::make_shared<std::vector<std::shared_ptr<SocketManager>>>();
-  std::shared_ptr<SocketManager> sockman1 = std::make_shared<SocketManager>("Secui00@!");
+  std::shared_ptr<SocketManager> sockman1 = std::make_shared<SocketManager>(sockmantype, sharedkey.c_str());
   (*sockmans).push_back(sockman1);
-  std::shared_ptr<SocketManager> sockman2 = std::make_shared<SocketManager>("Secui00@!");
+  std::shared_ptr<SocketManager> sockman2 = std::make_shared<SocketManager>(sockmantype, sharedkey.c_str());
   (*sockmans).push_back(sockman2);
   // ~set sensor vector
 
@@ -55,9 +61,11 @@ int main(int argc, char **argv) {
     return sockman.getSock();
   };
   std::shared_ptr<SEpoll<SocketManager>> mysepoll =
-      std::make_shared<SEpoll<SocketManager>>(lamb_setFunc, lamb_getFunc, sockmans, SEPOLL_TYPE::ACCEPT, "192.168.246.35", 19895);
+      std::make_shared<SEpoll<SocketManager>>(lamb_setFunc, lamb_getFunc, sockmans, type, ip, port);
   mysepoll->setInitReadFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginReadFunc(fd, what); },
                             EPOLLIN);
+  mysepoll->setInitWriteFunc([](int fd, short what, void *arg) -> void { static_cast<SocketManager *>(arg)->loginWriteFunc(fd, what); },
+                             EPOLLOUT | EPOLLONESHOT); //***원샷 구현***
 
   wp->setSEpollRef(mysepoll);
   wp->setTotalSockMansRef(sockmans);
