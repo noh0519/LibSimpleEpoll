@@ -36,10 +36,12 @@ private:
   std::function<void(int fd, short what, void *arg)> m_read_func = NULL;
   void *m_read_arg = NULL;
   uint32_t m_read_what = 0;
+  bool m_read_oneshot = false;
 
   std::function<void(int fd, short what, void *arg)> m_write_func = NULL;
   void *m_write_arg = NULL;
   uint32_t m_write_what = 0;
+  bool m_write_oneshot = false;
 
 public:
   SEpollFDFunc(int fd) {
@@ -75,12 +77,19 @@ public:
     m_read_arg = arg;
     m_read_what = what;
     m_read_what |= EPOLLRDHUP | EPOLLHUP | EPOLLERR; // necessary event
+    if (m_read_what & EPOLLONESHOT) {
+      m_read_what = m_read_what ^ EPOLLONESHOT;
+      m_read_oneshot = true;
+    } else {
+      m_read_oneshot = false;
+    }
   }
   void unsetReadFunc() {
     std::lock_guard<std::recursive_mutex> g(m_mutex_read);
     m_read_func = NULL;
     m_read_arg = NULL;
     m_read_what = 0;
+    m_read_oneshot = false;
   };
   bool isReadWhat(uint32_t what) {
     std::lock_guard<std::recursive_mutex> g(m_mutex_read);
@@ -91,6 +100,12 @@ public:
     if (m_read_func) {
       m_read_func(m_fd, what, m_read_arg);
     }
+    if (m_read_oneshot) {
+      m_read_func = NULL;
+      m_read_arg = NULL;
+      m_read_what = 0;
+      m_read_oneshot = false;
+    }
   }
 
   void setWriteFunc(std::function<void(int fd, short what, void *arg)> write_func, void *arg = NULL, uint32_t what = EPOLLOUT) {
@@ -98,12 +113,19 @@ public:
     m_write_func = write_func;
     m_write_arg = arg;
     m_write_what = what;
+    if (m_write_what & EPOLLONESHOT) {
+      m_write_what = m_write_what ^ EPOLLONESHOT;
+      m_write_oneshot = true;
+    } else {
+      m_write_oneshot = false;
+    }
   }
   void unsetWriteFunc() {
     std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     m_write_func = NULL;
     m_write_arg = NULL;
     m_write_what = 0;
+    m_write_oneshot = false;
   };
   bool isWriteWhat(uint32_t what) {
     std::lock_guard<std::recursive_mutex> g(m_mutex_write);
@@ -113,6 +135,12 @@ public:
     std::lock_guard<std::recursive_mutex> g(m_mutex_write);
     if (m_write_func) {
       m_write_func(m_fd, what, m_write_arg);
+    }
+    if (m_write_oneshot) {
+      m_write_func = NULL;
+      m_write_arg = NULL;
+      m_write_what = 0;
+      m_write_oneshot = false;
     }
   }
 
@@ -344,13 +372,12 @@ private:
           struct epoll_event client_event;
           client_event.events = 0;
           if (m_init_read_func) {
-            client_event.events |= m_init_read_what;
             m_fds_funcs[connect_socket]->setReadFunc(m_init_read_func, static_cast<void *>(find_shrfdt->get()), m_init_read_what);
           }
           if (m_init_write_func) {
-            client_event.events |= m_init_write_what;
             m_fds_funcs[connect_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(find_shrfdt->get()), m_init_write_what);
           }
+          client_event.events = m_fds_funcs[connect_socket]->getWhat();
           client_event.data.fd = connect_socket;
           epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, connect_socket, &client_event);
         }
@@ -367,7 +394,7 @@ private:
   void runConnect() {
     // try connect
     for (auto fdt : *m_fds) {
-      if (m_fd_get_func(*fdt) == -1) {
+      if (fdt && m_fd_get_func(*fdt) == -1) {
         printf("start connect\n");
         int connect_socket = socket(PF_INET, SOCK_STREAM, 0);
         if (connect_socket == -1) {
@@ -395,13 +422,12 @@ private:
         struct epoll_event client_event;
         client_event.events = 0;
         if (m_init_read_func) {
-          client_event.events |= m_init_read_what;
           m_fds_funcs[connect_socket]->setReadFunc(m_init_read_func, static_cast<void *>(fdt.get()), m_init_read_what);
         }
         if (m_init_write_func) {
-          client_event.events |= m_init_write_what;
           m_fds_funcs[connect_socket]->setWriteFunc(m_init_write_func, static_cast<void *>(fdt.get()), m_init_write_what);
         }
+        client_event.events = m_fds_funcs[connect_socket]->getWhat();
         client_event.data.fd = connect_socket;
         epoll_ctl(m_epoll_fd, EPOLL_CTL_ADD, connect_socket, &client_event);
         printf("end connect (%d)\n", connect_socket);
@@ -427,6 +453,7 @@ private:
   }
 
   void removeFD(int fd) {
+    printf("remove FD !!! (%d)\n", fd);
     close(fd);
     epoll_ctl(m_epoll_fd, EPOLL_CTL_DEL, fd, NULL);
     auto find_shrfdt = std::find_if(m_fds->begin(), m_fds->end(),

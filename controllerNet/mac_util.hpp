@@ -76,7 +76,7 @@ public:
         strcpy(req.ifr_name, ifa->ifa_name);
         if (ioctl(sd, SIOCGIFHWADDR, &req) != -1) {
           uint8_t *mac = (uint8_t *)req.ifr_ifru.ifru_hwaddr.sa_data;
-          printf("%s:MAC[%02X:%02X:%02X:%02X:%02X:%02X]\n", ifa->ifa_name, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+          // printf("%s:MAC[%02X:%02X:%02X:%02X:%02X:%02X]\n", ifa->ifa_name, mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
           retval += mac[0];
           retval = retval << 8;
           retval += mac[1];
@@ -88,7 +88,7 @@ public:
           retval += mac[4];
           retval = retval << 8;
           retval += mac[5];
-          printf("uint64_t : %lu\n", retval);
+          // printf("uint64_t : %lu\n", retval);
         }
       }
     }
