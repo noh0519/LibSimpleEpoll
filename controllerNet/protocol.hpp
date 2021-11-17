@@ -190,8 +190,6 @@ enum class ConnectionMode : uint8_t {
   UNKNOWN = 0x00,
   DATA = 0x01,
   CONFIG = 0x02,
-  DATA = 0x01,
-  CONFIG = 0x02,
 };
 
 enum class SendSignalType : uint8_t {
